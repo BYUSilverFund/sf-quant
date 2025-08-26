@@ -1,0 +1,15 @@
+[project]
+name = "sf-quant"
+description = "Python package for Silver Fund quant team research and trading tools."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Andrew Hall", email = "andrewmartinhall2@example.com" }]
+
+dependencies = ["polars"]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
