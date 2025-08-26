@@ -4,8 +4,9 @@ description = "Python package for Silver Fund quant team research and trading to
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Andrew Hall", email = "andrewmartinhall2@example.com" }]
-
 dependencies = ["polars"]
+dynamic = ["version"]
+
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
