@@ -14,3 +14,10 @@ dependencies = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "sphinx>=8.2.3",
+    "sphinx-autobuild>=2025.8.25",
+    "pydata-sphinx-theme>=0.16.1",
+]
