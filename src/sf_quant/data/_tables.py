@@ -2,7 +2,8 @@ import os
 import dotenv
 import polars as pl
 
-dotenv.load_dotenv(override=True)  
+dotenv.load_dotenv(override=True)
+
 
 class Table:
     def __init__(self, name: str, base_path: str) -> None:
@@ -35,7 +36,8 @@ class Table:
         pl.Config.set_tbl_rows(10)
         return df_str
 
-assets_table = Table('assets', os.getenv("ASSETS_TABLE"))
+
+assets_table = Table("assets", os.getenv("ASSETS_TABLE"))
 crsp_daily_table = Table("crsp_daily", os.getenv("CRSP_DAILY_TABLE"))
 crsp_monthly_table = Table("crsp_monthly", os.getenv("CRSP_MONTHLY_TABLE"))
 crsp_events_table = Table("crsp_events", os.getenv("CRSP_EVENTS_TABLE"))
