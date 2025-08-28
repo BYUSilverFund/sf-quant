@@ -72,6 +72,25 @@ def load_assets(
             .select(columns)
             .collect()
         )
+    
+def load_assets_by_date(
+    date_: dt.date, in_universe: bool, columns: list[str]
+) -> pl.DataFrame:
+    if in_universe:
+        return (
+            in_universe_assets.filter(pl.col("date").eq(date_))
+            .sort(["barrid", "date"])
+            .select(columns)
+            .collect()
+        )
+    else:
+        return (
+            assets_table.scan(date_.year)
+            .filter(pl.col("date").eq(date_))
+            .sort(["barrid", "date"])
+            .select(columns)
+            .collect()
+        )
 
 
 def get_assets_columns() -> str:

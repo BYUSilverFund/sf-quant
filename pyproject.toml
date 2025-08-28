@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Andrew Hall", email = "andrewmartinhall2@example.com" }]
 dependencies = [
+    "cvxpy>=1.7.2",
+    "numpy>=2.3.2",
     "polars>=1.32.3",
     "python-dotenv>=1.1.1",
 ]
