@@ -11,3 +11,9 @@ Optimizer
 .. autosummary::
    :toctree: optimizer
    :nosignatures:
+
+   mve_optimizer
+   FullInvestment
+   LongOnly
+   NoBuyingOnMargin
+   UnitBeta
