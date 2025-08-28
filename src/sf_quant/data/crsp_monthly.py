@@ -25,12 +25,12 @@ def load_crsp_monthly(start: dt.date, end: dt.date, columns: list[str]) -> pl.Da
 
     Examples
     --------
-    >>> import sf_quant as sf
+    >>> import sf_quant.data as sfd
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 12, 31)
     >>> columns = ["permno", "date", "ret"]
-    >>> df = sf.data.load_crsp_monthly(
+    >>> df = sfd.load_crsp_monthly(
     ...     start=start,
     ...     end=end,
     ...     columns=columns
@@ -72,9 +72,8 @@ def get_crsp_monthly_columns() -> str:
 
     Examples
     --------
-    >>> import sf_quant as sf
-    >>> columns = sf.data.get_crsp_monthly_columns()
-    >>> print(columns)
+    >>> import sf_quant.data as sfd
+    >>> sfd.get_crsp_monthly_columns()
     shape: (n, 2)
     ┌───────────────┬─────────┐
     │ column        ┆ dtype   │
@@ -86,6 +85,3 @@ def get_crsp_monthly_columns() -> str:
     └───────────────┴─────────┘
     """
     return crsp_monthly_table.columns()
-
-
-__all__ = ["load_crsp_monthly", "get_crsp_monthly_columns"]
