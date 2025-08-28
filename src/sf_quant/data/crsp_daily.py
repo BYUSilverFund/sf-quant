@@ -25,12 +25,12 @@ def load_crsp_daily(start: dt.date, end: dt.date, columns: list[str]) -> pl.Data
 
     Examples
     --------
-    >>> import sf_quant as sf
+    >>> import sf_quant.data as sfd
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 1, 31)
     >>> columns = ["permno", "date", "ret"]
-    >>> df = sf.data.load_crsp_daily(
+    >>> df = sfd.load_crsp_daily(
     ...     start=start,
     ...     end=end,
     ...     columns=columns
@@ -90,6 +90,3 @@ def get_crsp_daily_columns() -> str:
     └──────────────────────┴─────────┘
     """
     return crsp_daily_table.columns()
-
-
-__all__ = ["load_crsp_daily", "get_crsp_daily_columns"]

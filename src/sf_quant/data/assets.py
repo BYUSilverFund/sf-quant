@@ -32,12 +32,12 @@ def load_assets(
 
     Examples
     --------
-    >>> import sf_quant as sf
+    >>> import sf_quant.data as sfd
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 12, 31)
     >>> columns = ["barrid", "date", "price"]
-    >>> df = sf.data.assets.load(
+    >>> df = sfd.load_assets(
     ...     start=start,
     ...     end=end,
     ...     in_universe=True,
@@ -76,6 +76,51 @@ def load_assets(
 def load_assets_by_date(
     date_: dt.date, in_universe: bool, columns: list[str]
 ) -> pl.DataFrame:
+    """
+    Load a Polars DataFrame of assets data for a single date.
+
+    Parameters
+    ----------
+    date_ : datetime.date
+        Date of the data frame.
+    in_universe : bool
+        If ``True``, restrict to assets that are in the universe.
+        If ``False``, include all assets.
+    columns : list of str
+        List of column names to include in the result.
+
+    Returns
+    -------
+    polars.DataFrame
+        A DataFrame containing asset data on the specified date,
+        filtered by universe membership if requested, with only the
+        selected columns.
+
+    Examples
+    --------
+    >>> import sf_quant as sf
+    >>> import datetime as dt
+    >>> date_ = dt.date(2024, 1, 3)
+    >>> columns = ["barrid", "date", "price"]
+    >>> df = sf.data.load_assets_by_date(
+    ...     date_=date_,
+    ...     in_universe=True,
+    ...     columns=columns
+    ... )
+    >>> df.head()
+    shape: (5, 3)
+    ┌────────────┬─────────┬───────┐
+    │ date       ┆ barrid  ┆ price │
+    │ ---        ┆ ---     ┆ ---   │
+    │ date       ┆ str     ┆ f64   │
+    ╞════════════╪═════════╪═══════╡
+    │ 2024-01-03 ┆ USA06Z1 ┆ 7.775 │
+    │ 2024-01-03 ┆ USA0771 ┆ 10.23 │
+    │ 2024-01-03 ┆ USA0C11 ┆ 74.15 │
+    │ 2024-01-03 ┆ USA0SY1 ┆ 130.1 │
+    │ 2024-01-03 ┆ USA11I1 ┆ 43.55 │
+    └────────────┴─────────┴───────┘
+    """
     if in_universe:
         return (
             in_universe_assets.filter(pl.col("date").eq(date_))
@@ -109,8 +154,8 @@ def get_assets_columns() -> str:
 
     Examples
     --------
-    >>> import sf_quant as sf
-    >>> sf.data.get_assets_columns()
+    >>> import sf_quant.data as sfd
+    >>> sfd.get_assets_columns()
     shape: (30, 2)
     ┌──────────────────────┬─────────┐
     │ column               ┆ dtype   │
@@ -126,6 +171,3 @@ def get_assets_columns() -> str:
     └──────────────────────┴─────────┘
     """
     return assets_table.columns()
-
-
-__all__ = ["load_assets", "get_assets_columns"]

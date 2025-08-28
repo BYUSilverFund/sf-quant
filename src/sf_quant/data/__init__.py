@@ -11,6 +11,7 @@ from .crsp_monthly import load_crsp_monthly, get_crsp_monthly_columns
 from .exposures import load_exposures_by_date, get_exposures_columns
 from .covariances import load_covariances_by_date, get_covariances_columns
 from .covariance_matrix import construct_covariance_matrix
+from .benchmark import load_benchmark
 
 __all__ = [
     "load_assets",
@@ -24,5 +25,6 @@ __all__ = [
     "get_exposures_columns",
     "load_covariances_by_date",
     "get_covariances_columns",
-    "construct_covariance_matrix"
+    "construct_covariance_matrix",
+    "load_benchmark"
 ]
