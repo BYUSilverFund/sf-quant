@@ -11,3 +11,6 @@ Backtester
 .. autosummary::
    :toctree: backtester
    :nosignatures:
+
+   backtest_sequential
+   backtest_parallel

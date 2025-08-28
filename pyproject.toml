@@ -10,6 +10,8 @@ dependencies = [
     "numpy>=2.3.2",
     "polars>=1.32.3",
     "python-dotenv>=1.1.1",
+    "ray>=2.49.0",
+    "tqdm>=4.67.1",
 ]
 
 
