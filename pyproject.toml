@@ -7,10 +7,12 @@ requires-python = ">=3.11"
 authors = [{ name = "Andrew Hall", email = "andrewmartinhall2@gmail.com" }]
 dependencies = [
     "cvxpy>=1.7.2",
+    "matplotlib>=3.10.5",
     "numpy>=2.3.2",
     "polars>=1.32.3",
     "python-dotenv>=1.1.1",
     "ray>=2.49.0",
+    "seaborn>=0.13.2",
     "tqdm>=4.67.1",
 ]
 

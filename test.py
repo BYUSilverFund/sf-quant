@@ -1,31 +1,13 @@
-import sf_quant.data as sfd
-import sf_quant.backtester as sfb
-import sf_quant.optimizer as sfo
 import polars as pl
+import sf_quant.performance as sfp
 import datetime as dt
-start = dt.date(2024, 1, 1)
-end = dt.date(2024, 1, 10)
-columns = [
-    'date',
-    'barrid',
-]
-data = (
-    sfd.load_assets(
-        start=start,
-        end=end,
-        in_universe=True,
-        columns=columns
-    )
-    .with_columns(
-        pl.lit(0).alias('alpha')
-    )
+weights = pl.DataFrame(
+    {
+        'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
+        'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
+        'weight': [0.5, 0.5, 0.3, 0.7]
+    }
 )
-constraints = [
-    sfo.FullInvestment()
-]
-weights = sfb.backtest_parallel(
-    data=data,
-    constraints=constraints,
-    gamma=2,
-)
-print(weights.head())
+returns = sfp.generate_returns_from_weights(weights)
+summary = sfp.generate_summary_table(returns)
+print(summary)

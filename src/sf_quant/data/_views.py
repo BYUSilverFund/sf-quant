@@ -44,6 +44,10 @@ in_universe_assets = (
     .filter(pl.col("russell_1000") | pl.col("russell_2000"))
     # Drop russell_rebalance column
     .drop("russell_rebalance")
+    .sort('barrid', 'date')
+    .with_columns(
+        pl.col('return').shift(-1).over('barrid').alias('fwd_return')
+    )
 )
 
 crsp_events_monthly = (
