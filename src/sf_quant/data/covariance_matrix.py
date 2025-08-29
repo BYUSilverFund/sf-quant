@@ -5,6 +5,7 @@ from .exposures import load_exposures_by_date
 from .covariances import load_covariances_by_date
 from .assets import load_assets_by_date
 
+
 def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFrame:
     """
     Construct the asset covariance matrix from a factor model.
@@ -57,12 +58,20 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
     └─────────┴─────────────┴──────────────┘
     """
     # Load
-    exposures_matrix = _construct_factor_exposure_matrix(date_, barrids).drop("barrid").to_numpy()
-    covariance_matrix = _construct_factor_covariance_matrix(date_).drop("factor_1").to_numpy()
-    idio_risk_matrix = _construct_specific_risk_matrix(date_, barrids).drop("barrid").to_numpy()
+    exposures_matrix = (
+        _construct_factor_exposure_matrix(date_, barrids).drop("barrid").to_numpy()
+    )
+    covariance_matrix = (
+        _construct_factor_covariance_matrix(date_).drop("factor_1").to_numpy()
+    )
+    idio_risk_matrix = (
+        _construct_specific_risk_matrix(date_, barrids).drop("barrid").to_numpy()
+    )
 
     # Compute covariance matrix
-    covariance_matrix = exposures_matrix @ covariance_matrix @ exposures_matrix.T + idio_risk_matrix
+    covariance_matrix = (
+        exposures_matrix @ covariance_matrix @ exposures_matrix.T + idio_risk_matrix
+    )
 
     # Package
     covariance_matrix = pl.DataFrame(
@@ -75,12 +84,15 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
     return covariance_matrix
 
 
-def _construct_factor_exposure_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFrame:
+def _construct_factor_exposure_matrix(
+    date_: dt.date, barrids: list[str]
+) -> pl.DataFrame:
     exp_mat = (
         load_exposures_by_date(date_)
-        .drop('date')
-        .filter(pl.col('barrid').is_in(barrids)).fill_null(0)
-        .sort('barrid')
+        .drop("date")
+        .filter(pl.col("barrid").is_in(barrids))
+        .fill_null(0)
+        .sort("barrid")
     )
 
     return exp_mat
@@ -88,10 +100,12 @@ def _construct_factor_exposure_matrix(date_: dt.date, barrids: list[str]) -> pl.
 
 def _construct_factor_covariance_matrix(date_: dt.date) -> pl.DataFrame:
     # Load
-    fc_df = load_covariances_by_date(date_).drop('date')
+    fc_df = load_covariances_by_date(date_).drop("date")
 
     # Sort headers and columns
-    fc_df = fc_df.select(["factor_1"] + sorted([col for col in fc_df.columns if col != "factor_1"]))
+    fc_df = fc_df.select(
+        ["factor_1"] + sorted([col for col in fc_df.columns if col != "factor_1"])
+    )
     fc_df = fc_df.sort("factor_1")
 
     # Record factor ids
@@ -120,7 +134,9 @@ def _construct_specific_risk_matrix(date_: dt.date, barrids: list[str]) -> pl.Da
     barrids_df = pl.DataFrame({"barrid": barrids})
 
     # Load
-    sr_df = load_assets_by_date(date_, in_universe=False, columns=['date', 'barrid', 'specific_risk'])
+    sr_df = load_assets_by_date(
+        date_, in_universe=False, columns=["date", "barrid", "specific_risk"]
+    )
 
     # Filter
     sr_df = barrids_df.join(sr_df, on=["barrid"], how="left").fill_null(

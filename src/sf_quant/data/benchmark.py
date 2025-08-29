@@ -4,9 +4,7 @@ import polars as pl
 from ._views import benchmark
 
 
-def load_benchmark(
-    start: dt.date, end: dt.date
-) -> pl.DataFrame:
+def load_benchmark(start: dt.date, end: dt.date) -> pl.DataFrame:
     """
     Load benchmark data between two dates.
 

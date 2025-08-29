@@ -9,9 +9,9 @@ from .optimizers import mve_optimizer
 from .constraints import LongOnly, FullInvestment, NoBuyingOnMargin, UnitBeta
 
 __all__ = [
-    'mve_optimizer',
-    'LongOnly',
-    'FullInvestment',
-    'NoBuyingOnMargin',
-    'UnitBeta'
+    "mve_optimizer",
+    "LongOnly",
+    "FullInvestment",
+    "NoBuyingOnMargin",
+    "UnitBeta",
 ]

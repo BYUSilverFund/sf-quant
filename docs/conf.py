@@ -30,4 +30,3 @@ html_title = "Silver Fund Quant"
 html_theme = "pydata_sphinx_theme"
 html_show_sourcelink = False
 templates_path = ["_templates"]
-

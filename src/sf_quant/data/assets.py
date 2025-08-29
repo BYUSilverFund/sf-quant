@@ -72,7 +72,8 @@ def load_assets(
             .select(columns)
             .collect()
         )
-    
+
+
 def load_assets_by_date(
     date_: dt.date, in_universe: bool, columns: list[str]
 ) -> pl.DataFrame:

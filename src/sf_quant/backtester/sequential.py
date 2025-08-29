@@ -4,7 +4,10 @@ from sf_quant.data.covariance_matrix import construct_covariance_matrix
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 
-def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma: float = 2) -> pl.DataFrame:
+
+def backtest_sequential(
+    data: pl.DataFrame, constraints: list[Constraint], gamma: float = 2
+) -> pl.DataFrame:
     """
     Run a sequential backtest of portfolio optimization.
 
@@ -18,7 +21,7 @@ def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma
     ----------
     data : pl.DataFrame
         Input dataset containing at least the following columns:
-        
+
         - ``date`` : datetime-like, the date of each observation.
         - ``barrid`` : str, unique identifier for each asset.
         - ``alpha`` : float, expected return (alpha) for each asset.
@@ -35,9 +38,9 @@ def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma
     Returns
     -------
     pl.DataFrame
-        A Polars DataFrame containing optimized portfolio weights for each date, 
+        A Polars DataFrame containing optimized portfolio weights for each date,
         with the following columns:
-        
+
         - ``date`` : datetime, backtest date.
         - ``barrid`` : str, asset identifier.
         - ``weight`` : float, optimized portfolio weight.
@@ -94,7 +97,7 @@ def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma
     │ 2024-01-08 ┆ USA06Z1 ┆ -0.000666 │
     └────────────┴─────────┴───────────┘
     """
-    dates = data['date'].unique().sort().to_list()
+    dates = data["date"].unique().sort().to_list()
     portfolio_list = []
     for date_ in tqdm.tqdm(dates, "Running backtest"):
         subset = data.filter(pl.col("date").eq(date_)).sort("barrid")
@@ -102,7 +105,11 @@ def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma
         barrids = subset["barrid"].to_list()
         alphas = subset["alpha"].to_numpy()
 
-        betas = subset["predicted_beta"].to_numpy() if 'predicted_beta' in subset.columns else None
+        betas = (
+            subset["predicted_beta"].to_numpy()
+            if "predicted_beta" in subset.columns
+            else None
+        )
 
         covariance_matrix = (
             construct_covariance_matrix(date_, barrids).drop("barrid").to_numpy()
@@ -114,15 +121,13 @@ def backtest_sequential(data: pl.DataFrame, constraints: list[Constraint], gamma
             covariance_matrix=covariance_matrix,
             gamma=gamma,
             constraints=constraints,
-            betas=betas
+            betas=betas,
         )
 
-        portfolio = (
-            portfolio
-            .with_columns(pl.lit(date_).alias('date'))
-            .select('date', 'barrid', 'weight')
+        portfolio = portfolio.with_columns(pl.lit(date_).alias("date")).select(
+            "date", "barrid", "weight"
         )
 
         portfolio_list.append(portfolio)
-    
-    return pl.concat(portfolio_list).sort('barrid', 'date')
+
+    return pl.concat(portfolio_list).sort("barrid", "date")

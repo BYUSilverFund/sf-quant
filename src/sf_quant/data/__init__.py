@@ -26,5 +26,5 @@ __all__ = [
     "load_covariances_by_date",
     "get_covariances_columns",
     "construct_covariance_matrix",
-    "load_benchmark"
+    "load_benchmark",
 ]

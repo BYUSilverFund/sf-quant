@@ -7,15 +7,24 @@ from sf_quant.data.covariance_matrix import construct_covariance_matrix
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 
+
 @ray.remote
 def _construct_portfolio(
-    date_: dt.date, data: pl.DataFrame, constraints: list[Constraint], gamma: float, progress_bar: tqdm_ray.tqdm | None = None
+    date_: dt.date,
+    data: pl.DataFrame,
+    constraints: list[Constraint],
+    gamma: float,
+    progress_bar: tqdm_ray.tqdm | None = None,
 ):
     subset = data.filter(pl.col("date").eq(date_)).sort("barrid")
     barrids = subset["barrid"].to_list()
     alphas = subset["alpha"].to_numpy()
 
-    betas = subset["predicted_beta"].to_numpy() if 'predicted_beta' in subset.columns else None
+    betas = (
+        subset["predicted_beta"].to_numpy()
+        if "predicted_beta" in subset.columns
+        else None
+    )
 
     covariance_matrix = (
         construct_covariance_matrix(date_, barrids).drop("barrid").to_numpy()
@@ -27,15 +36,11 @@ def _construct_portfolio(
         covariance_matrix=covariance_matrix,
         gamma=gamma,
         constraints=constraints,
-        betas=betas
+        betas=betas,
     )
 
-    portfolio = (
-        portfolio
-        .with_columns(
-            pl.lit(date_).alias('date')
-        )
-        .select('date', 'barrid', 'weight')
+    portfolio = portfolio.with_columns(pl.lit(date_).alias("date")).select(
+        "date", "barrid", "weight"
     )
 
     if progress_bar is not None:
@@ -43,7 +48,13 @@ def _construct_portfolio(
 
     return portfolio
 
-def backtest_parallel(data: pl.DataFrame, constraints: list[Constraint], gamma: float = 2, n_cpus: int | None = None) -> pl.DataFrame:
+
+def backtest_parallel(
+    data: pl.DataFrame,
+    constraints: list[Constraint],
+    gamma: float = 2,
+    n_cpus: int | None = None,
+) -> pl.DataFrame:
     """
     Run a parallelized backtest of portfolio optimization using Ray.
 
@@ -113,7 +124,7 @@ def backtest_parallel(data: pl.DataFrame, constraints: list[Constraint], gamma: 
     ...     constraints=constraints,
     ...     gamma=2,
     ... )
-    shape: (5, 3)                                                                                                                                                             
+    shape: (5, 3)
     ┌────────────┬─────────┬───────────┐
     │ date       ┆ barrid  ┆ weight    │
     │ ---        ┆ ---     ┆ ---       │
@@ -143,11 +154,11 @@ def backtest_parallel(data: pl.DataFrame, constraints: list[Constraint], gamma: 
     # Dispatch parallel tasks
     portfolio_futures = [
         _construct_portfolio.remote(
-            date_=date_, 
-            data=data, 
+            date_=date_,
+            data=data,
             constraints=constraints,
             gamma=gamma,
-            progress_bar=progress_bar
+            progress_bar=progress_bar,
         )
         for date_ in dates
     ]

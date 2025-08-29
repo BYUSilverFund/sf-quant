@@ -10,7 +10,7 @@ from .tables import generate_summary_table
 from .charts import generate_returns_chart
 
 __all__ = [
-    'generate_returns_from_weights',
-    'generate_summary_table',
-    'generate_returns_chart'
+    "generate_returns_from_weights",
+    "generate_summary_table",
+    "generate_returns_chart",
 ]
