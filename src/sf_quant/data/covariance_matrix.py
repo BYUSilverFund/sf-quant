@@ -73,6 +73,9 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
         exposures_matrix @ covariance_matrix @ exposures_matrix.T + idio_risk_matrix
     )
 
+    # Put in decimal space
+    covariance_matrix /= (100 ** 2)
+
     # Package
     covariance_matrix = pl.DataFrame(
         {
