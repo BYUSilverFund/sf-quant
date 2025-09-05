@@ -4,6 +4,7 @@ import polars as pl
 from .exposures import load_exposures_by_date
 from .covariances import load_covariances_by_date
 from .assets import load_assets_by_date
+from ._factors import factors
 
 
 def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFrame:
@@ -74,7 +75,7 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
     )
 
     # Put in decimal space
-    covariance_matrix /= (100 ** 2)
+    covariance_matrix /= 100**2
 
     # Package
     covariance_matrix = pl.DataFrame(
@@ -96,6 +97,7 @@ def _construct_factor_exposure_matrix(
         .filter(pl.col("barrid").is_in(barrids))
         .fill_null(0)
         .sort("barrid")
+        .select(["barrid"] + factors)
     )
 
     return exp_mat
@@ -106,13 +108,9 @@ def _construct_factor_covariance_matrix(date_: dt.date) -> pl.DataFrame:
     fc_df = load_covariances_by_date(date_).drop("date")
 
     # Sort headers and columns
-    fc_df = fc_df.select(
-        ["factor_1"] + sorted([col for col in fc_df.columns if col != "factor_1"])
-    )
-    fc_df = fc_df.sort("factor_1")
+    fc_df = fc_df.select(["factor_1"] + factors)
 
-    # Record factor ids
-    factors = fc_df.select("factor_1").to_numpy().flatten()
+    fc_df = fc_df.sort("factor_1")
 
     # Convert from upper triangular to symetric
     utm = fc_df.drop("factor_1").to_numpy()
