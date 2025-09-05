@@ -110,6 +110,8 @@ def _construct_factor_covariance_matrix(date_: dt.date) -> pl.DataFrame:
     # Sort headers and columns
     fc_df = fc_df.select(["factor_1"] + factors)
 
+    fc_df = fc_df.filter(pl.col('factor_1').is_in(factors))
+
     fc_df = fc_df.sort("factor_1")
 
     # Convert from upper triangular to symetric
