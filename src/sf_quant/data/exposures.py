@@ -6,7 +6,7 @@ from ._views import in_universe_assets
 
 def load_exposures(start: dt.date, end: dt.date, in_universe: bool, columns: list) -> pl.DataFrame:
     """
-    Load a Polars DataFrame of assets data between two dates.
+    Load a Polars DataFrame of factor exposures data between two dates.
 
     Parameters
     ----------
