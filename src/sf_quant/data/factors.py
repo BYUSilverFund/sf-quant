@@ -8,7 +8,7 @@ def load_factors(
     start: dt.date, end: dt.date
 ) -> pl.DataFrame:
     """
-    Load a Polars DataFrame of factor returns between two dates.
+    Load a Polars DataFrame of factor returns(%) between two dates.
 
     Parameters
     ----------

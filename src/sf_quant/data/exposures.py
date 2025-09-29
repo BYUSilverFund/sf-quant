@@ -23,7 +23,7 @@ def load_exposures(start: dt.date, end: dt.date, in_universe: bool, columns: lis
     Returns
     -------
     polars.DataFrame
-        A DataFrame containing asset data between the specified dates,
+        A DataFrame containing factor exposures data between the specified dates,
         filtered by universe membership if requested, with only the
         selected columns.
 
