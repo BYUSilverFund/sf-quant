@@ -12,7 +12,7 @@ from .exposures import load_exposures, load_exposures_by_date, get_exposures_col
 from .covariances import load_covariances_by_date, get_covariances_columns
 from .covariance_matrix import construct_covariance_matrix
 from .benchmark import load_benchmark
-from .factors import load_factors, get_factors_columns
+from .factors import load_factors, get_factors_columns, get_factor_names
 
 __all__ = [
     "load_assets",
@@ -30,5 +30,6 @@ __all__ = [
     "construct_covariance_matrix",
     "load_benchmark",
     "load_factors",
-    "get_factors_columns"
+    "get_factors_columns",
+    "get_factor_names"
 ]
