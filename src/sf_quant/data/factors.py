@@ -18,8 +18,10 @@ def load_factors(
         Start date (inclusive) of the data frame.
     end : datetime.date
         End date (inclusive) of the data frame.
-    is_style : bool
-        If True, load only style factors. If False, load all available factors.
+    factors : list of str, optional
+        List of factor names to select. 
+        - If provided, only the specified factors are included in the output.
+        - If None (default), all available factors are included.
 
     Returns
     -------

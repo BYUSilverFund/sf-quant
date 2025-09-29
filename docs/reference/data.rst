@@ -24,4 +24,5 @@ Data
    get_crsp_monthly_columns
    get_exposures_columns
    get_factors_columns
+   get_factor_names
    construct_covariance_matrix
