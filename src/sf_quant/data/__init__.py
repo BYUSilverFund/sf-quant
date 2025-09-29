@@ -31,5 +31,5 @@ __all__ = [
     "load_benchmark",
     "load_factors",
     "get_factors_columns",
-    "get_factors_columns"
+    "get_factor_names"
 ]
