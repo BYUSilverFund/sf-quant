@@ -17,7 +17,11 @@ Data
    load_crsp_daily
    load_crsp_monthly
    load_benchmark
+   load_exposures
+   load_factors
    get_assets_columns
    get_crsp_daily_columns
    get_crsp_monthly_columns
+   get_exposures_columns
+   get_factors_columns
    construct_covariance_matrix
