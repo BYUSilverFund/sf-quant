@@ -1,11 +1,13 @@
 import datetime as dt
 import polars as pl
+from typing import Literal
 
 from ._tables import factors_table
+from ._factors import factors, style_factors, sector_factors
 
 
 def load_factors(
-    start: dt.date, end: dt.date
+    start: dt.date, end: dt.date, factors: list[str] | None = None
 ) -> pl.DataFrame:
     """
     Load a Polars DataFrame of factor returns(%) between two dates.
@@ -16,6 +18,8 @@ def load_factors(
         Start date (inclusive) of the data frame.
     end : datetime.date
         End date (inclusive) of the data frame.
+    is_style : bool
+        If True, load only style factors. If False, load all available factors.
 
     Returns
     -------
@@ -46,7 +50,19 @@ def load_factors(
     │ 2024-01-08 ┆ -1.414716       ┆ 0.6914087        ┆ -0.973735        ┆ … ┆
     └────────────┴─────────────────┴──────────────────┴──────────────────┴───┘
     """
-    return (
+    if factors:
+
+        return (
+            factors_table.scan()
+            .filter(
+                pl.col('date').is_between(start, end)
+            )
+            .sort('date')
+            .select(['date'] + factors)
+            .collect()
+        )
+    else:
+        return (
         factors_table.scan()
         .filter(
             pl.col('date').is_between(start, end)
@@ -89,3 +105,50 @@ def get_factors_columns() -> str:
     └──────────────────┴─────────┘
     """
     return factors_table.columns()
+
+
+def get_factor_names(
+    type: Literal["style", "sector"] | None = None
+) -> list[str]:
+    """
+    Return the list of available factor names.
+
+    This function provides the names of factors that can be retrieved
+    with :func:`load_factors`. By default, all factor names are returned.
+    Optionally, the list can be restricted to either style or sector factors.
+
+    Parameters
+    ----------
+    type : {"style", "sector"}, optional
+        The category of factors to return.
+        - "style" : return only style factor names
+        - "sector": return only sector/industry factor names
+        - None (default): return all available factors
+
+    Returns
+    -------
+    list of str
+        A list of factor names matching the specified type.
+
+    Raises
+    ------
+    ValueError
+        If `type` is provided but is not one of {"style", "sector", None}.
+
+    Examples
+    --------
+    >>> import sf_quant.data as sfd
+    >>> sfd.get_factor_names()
+    ["USSLOWL_BETA", "USSLOWL_VALUE", "USSLOWL_AERODEF", ...]
+
+    >>> sfd.get_factor_names("style")
+    ["USSLOWL_BETA", "USSLOWL_VALUE", "USSLOWL_MOMENTUM", ...]
+
+    >>> sfd.get_factor_names("sector")
+    ["USSLOWL_AERODEF", "USSLOWL_AIRLINES", "USSLOWL_BANKS", ...]
+    """
+
+    if type == "style": return style_factors
+    if type == "sector": return sector_factors
+    if type is None: return factors
+    raise ValueError(f"Invalid type: {type!r}. Must be 'style', 'sector', or None.")
