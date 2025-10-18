@@ -1,8 +1,7 @@
 import datetime as dt
 import polars as pl
 
-from ._tables import exposures_table
-from ._views import in_universe_assets
+from ._tables import exposures_table, assets_table
 
 def load_exposures(start: dt.date, end: dt.date, in_universe: bool, columns: list) -> pl.DataFrame:
     """
@@ -61,7 +60,10 @@ def load_exposures(start: dt.date, end: dt.date, in_universe: bool, columns: lis
     """
     if in_universe:
         return (
-            in_universe_assets
+            assets_table.scan()
+            .filter(
+                pl.col('in_universe')
+            )
             .select('date', 'barrid')
             .join(
                 other=exposures_table.scan(),
