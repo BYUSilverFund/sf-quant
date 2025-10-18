@@ -2,11 +2,10 @@ import datetime as dt
 import polars as pl
 
 from ._tables import assets_table
-from ._views import in_universe_assets
 
 
 def load_assets(
-    start: dt.date, end: dt.date, in_universe: bool, columns: list[str]
+    start: dt.date, end: dt.date, columns: list[str], in_universe: bool | None = None
 ) -> pl.DataFrame:
     """
     Load a Polars DataFrame of assets data between two dates.
@@ -59,11 +58,16 @@ def load_assets(
     """
     if in_universe:
         return (
-            in_universe_assets.filter(pl.col("date").is_between(start, end))
+            assets_table.scan()
+            .filter(
+                pl.col("date").is_between(start, end),
+                pl.col('in_universe')
+            )
             .sort(["barrid", "date"])
             .select(columns)
             .collect()
         )
+
     else:
         return (
             assets_table.scan()
@@ -124,7 +128,11 @@ def load_assets_by_date(
     """
     if in_universe:
         return (
-            in_universe_assets.filter(pl.col("date").eq(date_))
+            assets_table.scan()
+            .filter(
+                pl.col("date").eq(date_),
+                pl.col('in_universe')
+            )
             .sort(["barrid", "date"])
             .select(columns)
             .collect()
