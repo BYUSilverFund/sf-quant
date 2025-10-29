@@ -2,6 +2,7 @@ import polars as pl
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import dataframely as dy
 
 
 def generate_returns_chart(
@@ -87,5 +88,57 @@ def generate_returns_chart(
 
     if file_name is not None:
         plt.savefig(file_name)
+    else:
+        plt.show()
+
+
+def generate_ic_chart(
+    ics: dy.DataFrame[ICSchema],
+    title: str,
+    subtitle: str | None = None,
+    file_name: str | None = None,
+) -> None:
+    """
+    Plot Information Coefficients (ICs) over time.
+
+    Parameters
+    ----------
+    ics : pl.DataFrame
+        Must include:
+          - 'date' (date)
+          - 'ic' (float)
+          - 'ic_type' (str)   e.g., "Rank IC" or "Pearson IC"
+    title : str
+        Main chart title.
+    subtitle : str | None
+        Optional subtitle shown beneath the main title.
+    file_name : str | None
+        Path to save the figure; if None, displays interactively.
+    """
+    required = {"date", "ic", "ic_type"}
+    missing = required - set(ics.columns)
+    if missing:
+        raise ValueError(f"ics is missing required columns: {sorted(missing)}")
+
+    df = ics.sort("date")
+
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=df.to_pandas(), x="date", y="ic", hue="ic_type")
+
+    plt.axhline(0, color="black", linewidth=1, linestyle="--", alpha=0.7)
+
+    plt.suptitle(title, fontsize=14)
+    if subtitle:
+        plt.title(subtitle, fontsize=11)
+
+    plt.ylabel("Information Coefficient")
+    plt.xlabel(None)
+
+    plt.grid(True, alpha=0.5)
+    plt.tight_layout()
+
+    if file_name:
+        plt.savefig(file_name, dpi=150, bbox_inches="tight")
+        plt.close()
     else:
         plt.show()
