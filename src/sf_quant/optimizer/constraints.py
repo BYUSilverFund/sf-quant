@@ -37,7 +37,7 @@ class FullInvestment(Constraint):
         return cp.sum(weights) == 1
 
 
-class LongOnly:
+class LongOnly(Constraint):
     """
     Enforces a long-only constraint.
 
@@ -53,7 +53,7 @@ class LongOnly:
         return weights >= 0
 
 
-class NoBuyingOnMargin:
+class NoBuyingOnMargin(Constraint):
     """
     Enforces a no-buying-on-margin constraint.
 
@@ -70,7 +70,7 @@ class NoBuyingOnMargin:
         return cp.sum(weights) <= 1
 
 
-class UnitBeta:
+class UnitBeta(Constraint):
     """
     Enforces a unit-beta constraint.
 
@@ -94,6 +94,31 @@ class UnitBeta:
         if betas is None:
             raise ValueError("UnitBeta requires betas")
         return betas @ weights == 1
+    
+class ZeroBeta(Constraint):
+    """
+    Enforces a unit-beta constraint.
+
+    This constraint requires the portfolio's exposure to a given beta vector
+    to equal 0. A ``betas`` array must be provided as a keyword argument.
+
+    Raises
+    ------
+    ValueError
+        If ``betas`` is not provided in the keyword arguments.
+
+    Examples
+    --------
+    >>> weights = cp.Variable(3)
+    >>> betas = np.array([0.5, 1.2, 0.8])
+    >>> constraint = ZeroBeta()(weights, betas=betas)
+    """
+
+    def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
+        betas: np.ndarray | None = kwargs.get("betas")
+        if betas is None:
+            raise ValueError("ZeroBeta requires betas")
+        return betas @ weights == 0
 
 
 def _construct_constraints(
