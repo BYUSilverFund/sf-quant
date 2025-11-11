@@ -17,6 +17,6 @@ __all__ = [
     "SecurityRetSchema",
     "LeverageSchema",
     "DrawdownSchema",
-    "AlphaSchema"
-    "ICSchema"
+    "AlphaSchema",
+    "ICSchema",
 ]

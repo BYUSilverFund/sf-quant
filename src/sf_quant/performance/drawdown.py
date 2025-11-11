@@ -8,7 +8,7 @@ def generate_drawdown_from_returns(returns: PortfolioRetSchema) -> DrawdownSchem
 
     Parameters
     ----------
-        returns (PortfolioReturnsSchema): Portfolio returns validated against PortfolioReturnsSchema.
+        returns (PortfolioRetSchema): Portfolio returns validated against PortfolioReturnsSchema.
             Must include the following columns:
             - ``date`` (date): The observation date.
             - ``return`` (float): Daily portfolio return.
