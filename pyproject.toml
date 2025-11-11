@@ -3,7 +3,7 @@ name = "sf-quant"
 version = "0.1.14"
 description = "Python package for Silver Fund quant team research and trading tools."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 authors = [{ name = "Andrew Hall", email = "andrewmartinhall2@gmail.com" }]
 dependencies = [
     "cvxpy>=1.7.2",
