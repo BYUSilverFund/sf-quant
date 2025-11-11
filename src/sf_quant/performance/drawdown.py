@@ -1,5 +1,4 @@
 import polars as pl
-from sf_quant.data.benchmark import load_benchmark
 from sf_quant.schema.drawdown_schema import DrawdownSchema
 from sf_quant.schema.returns_schema import PortfolioRetSchema
 
