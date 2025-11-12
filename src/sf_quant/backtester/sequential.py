@@ -3,6 +3,7 @@ import tqdm
 from sf_quant.data.covariance_matrix import construct_covariance_matrix
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
+from sf_quant.schema.portfolio_schema import PortfolioSchema
 
 
 def backtest_sequential(
@@ -38,8 +39,8 @@ def backtest_sequential(
     Returns
     -------
     pl.DataFrame
-        A Polars DataFrame containing optimized portfolio weights for each date,
-        with the following columns:
+        A PortfolioSchema-validated Polars DataFrame containing optimized
+        portfolio weights for each date, with the following columns:
 
         - ``date`` : datetime, backtest date.
         - ``barrid`` : str, asset identifier.
@@ -130,4 +131,4 @@ def backtest_sequential(
 
         portfolio_list.append(portfolio)
 
-    return pl.concat(portfolio_list).sort("barrid", "date")
+    return PortfolioSchema.validate(pl.concat(portfolio_list).sort("barrid", "date"))

@@ -6,6 +6,7 @@ from ray.experimental import tqdm_ray
 from sf_quant.data.covariance_matrix import construct_covariance_matrix
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
+from sf_quant.schema.portfolio_schema import PortfolioSchema
 
 
 @ray.remote
@@ -85,8 +86,8 @@ def backtest_parallel(
     Returns
     -------
     pl.DataFrame
-        A Polars DataFrame containing optimized portfolio weights across
-        all backtest dates, with columns:
+        A PortfolioSchema-validated Polars DataFrame containing optimized
+        portfolio weights across all backtest dates, with columns:
 
         - ``date`` : datetime, portfolio date.
         - ``barrid`` : str, asset identifier.
@@ -168,4 +169,4 @@ def backtest_parallel(
     progress_bar.close.remote()
     ray.shutdown()
 
-    return pl.concat(portfolio_list)
+    return PortfolioSchema.validate(pl.concat(portfolio_list))
