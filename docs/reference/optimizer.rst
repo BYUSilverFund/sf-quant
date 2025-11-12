@@ -17,3 +17,4 @@ Optimizer
    LongOnly
    NoBuyingOnMargin
    UnitBeta
+   ZeroBeta
