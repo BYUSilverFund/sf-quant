@@ -287,18 +287,20 @@ def generate_drawdown_chart(
     else:
         plt.show()
 
-def generate_ic_chart(ics: ICSchema,
+
+def generate_ic_chart(
+    ics: ICSchema,
     title: str | None = None,
     ic_type: str | None = None,
     file_name: str | None = None,
     ) -> None:
     """
-    Plot Information Coefficient (IC) over time.
+    Plot cumulative Information Coefficient (IC) over time.
 
-    This function generates a line chart of IC values across dates. The IC measures
-    the correlation between a predictive signal (alpha) and subsequent realized returns,
-    either in raw (Pearson) or rank (Spearman) form. A horizontal line at zero is added
-    to indicate the baseline.
+    This function generates a line chart of the cumulative sum of IC values
+    across dates. The cumulative IC provides insight into the persistent
+    predictive power of alphas by showing whether ICs compound positively or
+    negatively over time.
 
     Parameters
     ----------
@@ -307,7 +309,7 @@ def generate_ic_chart(ics: ICSchema,
             - ``date`` (date): The observation date.
             - ``ic`` (float): The IC value for that date.
         title (str | None, optional): The chart's main title. Defaults to
-            ``'Information Coefficient Over Time'`` if not provided.
+            ``'Cumulative Information Coefficient'`` if not provided.
         ic_type (str | None, optional): Type of IC to display (e.g., 'Pearson' or 'Rank').
             If not provided, defaults to 'Rank IC'.
         file_name (str | None, optional): If not ``None``, saves the chart to the given
@@ -315,30 +317,40 @@ def generate_ic_chart(ics: ICSchema,
 
     Returns
     -------
-        None: Displays the IC time series chart using Matplotlib and Seaborn,
+        None: Displays the cumulative IC time series chart using Matplotlib and Seaborn,
         or saves it to a file if ``file_name`` is specified.
 
     Notes
     -----
-        - The chart includes a dashed horizontal line at y=0 to indicate the
-          neutral correlation level.
-        - IC values are plotted directly; no cumulative or compounding calculation
-          is applied.
-        - Useful for visualizing the predictive power of alphas over time.
+        - The cumulative IC is computed using a simple cumulative sum (no compounding).
+        - A rising line indicates consistent positive ICs, while a declining line
+          indicates persistent negative ICs.
+        - Useful for assessing whether a signal’s predictive strength holds over time.
     """
     if title is None:
-        title = 'Information Coefficient Over Time'
+        title = 'Cumulative Information Coefficient'
+
+    if not isinstance(ics, pl.DataFrame):
+        ics = pl.from_pandas(ics.to_pandas())
+
+    ics = (
+        ics
+        .sort("date")
+        .with_columns(
+            pl.col("ic").fill_null(0).cum_sum().alias("cumulative_ic")
+        )
+    )
 
     plt.figure(figsize=(8, 5))
-    sns.lineplot(data=ics, x='date', y='ic')
+    sns.lineplot(data=ics, x='date', y='cumulative_ic')
     plt.axhline(y=0, color='r', linestyle='--', alpha=0.3)
     plt.title(title)
     plt.xlabel(None)
 
     if ic_type is not None:
-        plt.ylabel(f'{ic_type} IC')
+        plt.ylabel(f'Cumulative {ic_type} IC')
     else:
-        plt.ylabel('Rank IC')
+        plt.ylabel('Cumulative Rank IC')
 
     plt.tight_layout()
 
