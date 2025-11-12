@@ -2,7 +2,7 @@ import polars as pl
 from sf_quant.schema import AlphaSchema, SecurityRetSchema
 import dataframely as dy
 
-def get_alpha_ics(
+def generate_alpha_ics(
     alphas: dy.DataFrame[AlphaSchema],
     rets:   dy.DataFrame[SecurityRetSchema],
     method: str = "rank",      # "pearson" or "rank"
@@ -71,7 +71,7 @@ def get_alpha_ics(
 
     >>> alphas = dy.validate(alphas, AlphaSchema)
     >>> rets = dy.validate(rets, SecurityRetSchema)
-    >>> ic_df = get_alpha_ics(alphas, rets, method="rank")
+    >>> ic_df = generate_alpha_ics(alphas, rets, method="rank")
     >>> ic_df
     shape: (2, 3)
     ┌────────────┬──────────┬─────┐
