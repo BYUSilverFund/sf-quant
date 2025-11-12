@@ -6,7 +6,7 @@ internal mathematical and solver details hidden.
 """
 
 from .optimizers import mve_optimizer
-from .constraints import LongOnly, FullInvestment, NoBuyingOnMargin, UnitBeta
+from .constraints import LongOnly, FullInvestment, NoBuyingOnMargin, UnitBeta, ZeroBeta
 
 __all__ = [
     "mve_optimizer",
@@ -14,4 +14,5 @@ __all__ = [
     "FullInvestment",
     "NoBuyingOnMargin",
     "UnitBeta",
+    "ZeroBeta"
 ]

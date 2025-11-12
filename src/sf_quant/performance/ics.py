@@ -1,6 +1,4 @@
 import polars as pl
-from sf_quant.data.assets import load_assets
-from sf_quant.data.benchmark import load_benchmark
 from sf_quant.schema import AlphaSchema, SecurityRetSchema
 import dataframely as dy
 
