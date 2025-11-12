@@ -97,7 +97,7 @@ class UnitBeta(Constraint):
     
 class ZeroBeta(Constraint):
     """
-    Enforces a unit-beta constraint.
+    Enforces a zero-beta constraint.
 
     This constraint requires the portfolio's exposure to a given beta vector
     to equal 0. A ``betas`` array must be provided as a keyword argument.

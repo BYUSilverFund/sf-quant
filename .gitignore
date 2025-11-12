@@ -85,6 +85,10 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
+
+# Parquet files
+*.parquet
 
 # IPython
 profile_default/
