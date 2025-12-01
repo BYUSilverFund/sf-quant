@@ -23,7 +23,7 @@ def generate_drawdown_from_returns(returns: PortfolioRetSchema) -> DrawdownSchem
     -----
         - Drawdown is calculated as (current_value / peak_value) - 1
         - Values are ≤ 0, where 0 indicates a new peak
-        - Calculated per portfolio using grouped operations
+        - Calculated for a single portfolio time series
 
         
     Examples
