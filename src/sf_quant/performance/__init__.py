@@ -19,6 +19,10 @@ from .charts import (
     generate_multi_returns_chart,
     generate_leverage_chart,
     generate_drawdown_chart,
+    generate_ic_chart,
+)
+from .ics import (
+    generate_alpha_ics,
 )
 
 __all__ = [
@@ -39,4 +43,7 @@ __all__ = [
     "generate_multi_returns_chart",
     "generate_leverage_chart",
     "generate_drawdown_chart",
+    # Alpha
+    "generate_alpha_ics",
+    "generate_ic_chart",
 ]

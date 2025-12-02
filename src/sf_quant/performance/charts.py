@@ -1,5 +1,4 @@
 import polars as pl
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -287,53 +286,74 @@ def generate_drawdown_chart(
     else:
         plt.show()
 
+
 def generate_ic_chart(
     ics: ICSchema,
-    title: str,
-    subtitle: str | None = None,
+    title: str | None = None,
+    ic_type: str | None = None,
     file_name: str | None = None,
-) -> None:
+    ) -> None:
     """
-    Plot Information Coefficients (ICs) over time.
+    Plot cumulative Information Coefficient (IC) over time.
+
+    This function generates a line chart of the cumulative sum of IC values
+    across dates. The cumulative IC provides insight into the persistent
+    predictive power of alphas by showing whether ICs compound positively or
+    negatively over time.
 
     Parameters
     ----------
-    ics : pl.DataFrame
-        Must include:
-          - 'date' (date)
-          - 'ic' (float)
-          - 'ic_type' (str)   e.g., "Rank IC" or "Pearson IC"
-    title : str
-        Main chart title.
-    subtitle : str | None
-        Optional subtitle shown beneath the main title.
-    file_name : str | None
-        Path to save the figure; if None, displays interactively.
+        ics (ICSchema): A DataFrame containing IC values.
+            Must include the following columns:
+            - ``date`` (date): The observation date.
+            - ``ic`` (float): The IC value for that date.
+        title (str | None, optional): The chart's main title. Defaults to
+            ``'Cumulative Information Coefficient'`` if not provided.
+        ic_type (str | None, optional): Type of IC to display (e.g., 'Pearson' or 'Rank').
+            If not provided, defaults to 'Rank IC'.
+        file_name (str | None, optional): If not ``None``, saves the chart to the given
+            file path. Otherwise, the chart is displayed interactively.
+
+    Returns
+    -------
+        None: Displays the cumulative IC time series chart using Matplotlib and Seaborn,
+        or saves it to a file if ``file_name`` is specified.
+
+    Notes
+    -----
+        - The cumulative IC is computed using a simple cumulative sum (no compounding).
+        - A rising line indicates consistent positive ICs, while a declining line
+          indicates persistent negative ICs.
+        - Useful for assessing whether a signal’s predictive strength holds over time.
     """
-    required = {"date", "ic", "ic_type"}
-    missing = required - set(ics.columns)
-    if missing:
-        raise ValueError(f"ics is missing required columns: {sorted(missing)}")
+    if title is None:
+        title = 'Cumulative Information Coefficient'
 
-    df = ics.sort("date")
+    if not isinstance(ics, pl.DataFrame):
+        ics = pl.from_pandas(ics.to_pandas())
 
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=df.to_pandas(), x="date", y="ic", hue="ic_type")
+    ics = (
+        ics
+        .sort("date")
+        .with_columns(
+            pl.col("ic").fill_null(0).cum_sum().alias("cumulative_ic")
+        )
+    )
 
-    plt.axhline(0, color="black", linewidth=1, linestyle="--", alpha=0.7)
-
-    plt.suptitle(title, fontsize=14)
-    if subtitle:
-        plt.title(subtitle, fontsize=11)
-
-    plt.ylabel("Information Coefficient")
+    plt.figure(figsize=(8, 5))
+    sns.lineplot(data=ics, x='date', y='cumulative_ic')
+    plt.axhline(y=0, color='r', linestyle='--', alpha=0.3)
+    plt.title(title)
     plt.xlabel(None)
 
-    plt.grid(True, alpha=0.5)
+    if ic_type is not None:
+        plt.ylabel(f'Cumulative {ic_type} IC')
+    else:
+        plt.ylabel('Cumulative Rank IC')
+
     plt.tight_layout()
 
-    if file_name:
-        plt.savefig(file_name, dpi=150, bbox_inches="tight")
-        plt.close()
+    if file_name is not None:
+        plt.savefig(file_name)
     else:
         plt.show()
