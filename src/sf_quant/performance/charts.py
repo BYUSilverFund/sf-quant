@@ -1,8 +1,7 @@
 import polars as pl
-
 import matplotlib.pyplot as plt
 import seaborn as sns
-import dataframely as dy
+
 from sf_quant.schema.ic_schema import ICSchema
 from sf_quant.schema.leverage_schema import LeverageSchema
 from sf_quant.schema.drawdown_schema import DrawdownSchema
@@ -304,7 +303,7 @@ def generate_ic_chart(
 
     Parameters
     ----------
-        ics (dy.DataFrame[ICSchema]): A DataFrame containing IC values.
+        ics (ICSchema): A DataFrame containing IC values.
             Must include the following columns:
             - ``date`` (date): The observation date.
             - ``ic`` (float): The IC value for that date.

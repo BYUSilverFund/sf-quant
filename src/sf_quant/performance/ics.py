@@ -34,6 +34,7 @@ def generate_alpha_ics(
         method (str, optional): Method to compute IC. Either ``"pearson"`` for raw
             correlation or ``"rank"`` for Spearman correlation on ranks. Defaults to
             ``"rank"``.
+        window (int, optional): Number of days to compute rolling returns over. Defaults to 22.
 
     Returns
     -------
