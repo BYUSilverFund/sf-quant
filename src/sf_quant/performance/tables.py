@@ -15,38 +15,44 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
     (statistics transposed into rows).
 
     Parameters
-    ----
-        returns (MultiPortfolioRetSchema): Portfolio returns validated against MultiPortfolioRetSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``portfolio`` (str): Portfolio name or identifier.
-            - ``return`` (float): Daily portfolio return.
-        wide (bool, optional): If ``True`` (default), return the summary in wide
-            format with one row per portfolio. If ``False``, return the summary
-            transposed with statistics as rows.
+    ----------
+    returns : MultiPortfolioRetSchema
+        Portfolio returns validated against MultiPortfolioRetSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``portfolio`` (str): Portfolio name or identifier.
+        - ``return`` (float): Daily portfolio return.
+    wide : bool, optional
+        If ``True`` (default), return the summary in wide
+        format with one row per portfolio. If ``False``, return the summary
+        transposed with statistics as rows.
 
     Returns
     -------
-        pl.DataFrame: A Polars DataFrame containing portfolio summary statistics.
+    pl.DataFrame
+        A Polars DataFrame containing portfolio summary statistics.
         The exact structure depends on the ``wide`` argument:
 
-        - **Wide format (default):**
-            - ``Portfolio`` (str): Portfolio name.
-            - ``Count`` (int): Number of days in the sample.
-            - ``Mean Return (%)`` (float): Annualized mean return (in percent).
-            - ``Volatility (%)`` (float): Annualized volatility (in percent).
-            - ``Total Return (%)`` (float): Total return over the period (in percent).
-            - ``Sharpe`` (float): Sharpe ratio.
+        **Wide format (default):**
 
-        - **Long format (wide=False):**
-            - ``statistics`` (str): Statistic name.
-            - One column per portfolio containing the respective values.
+        - ``Portfolio`` (str): Portfolio name.
+        - ``Count`` (int): Number of days in the sample.
+        - ``Mean Return (%)`` (float): Annualized mean return (in percent).
+        - ``Volatility (%)`` (float): Annualized volatility (in percent).
+        - ``Total Return (%)`` (float): Total return over the period (in percent).
+        - ``Sharpe`` (float): Sharpe ratio.
+
+        **Long format (wide=False):**
+
+        - ``statistics`` (str): Statistic name.
+        - One column per portfolio containing the respective values.
 
     Notes
     -----
-        - Annualization assumes 252 trading days per year.
-        - Returns are converted to percentages for readability.
-        - Sharpe ratio is calculated as ``mean_return / volatility``.
+    - Annualization assumes 252 trading days per year.
+    - Returns are converted to percentages for readability.
+    - Sharpe ratio is calculated as ``mean_return / volatility``.
 
     Examples
     --------
@@ -126,26 +132,30 @@ def generate_returns_summary_table(returns: PortfolioRetSchema) -> pl.DataFrame:
     including mean return, volatility, total return, and Sharpe ratio.
 
     Parameters
-    ----
-        returns (PortfolioRetSchema): Portfolio returns validated against PortfolioRetSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``return`` (float): Daily portfolio return.
+    ----------
+    returns : PortfolioRetSchema
+        Portfolio returns validated against PortfolioRetSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``return`` (float): Daily portfolio return.
 
     Returns
     -------
-        pl.DataFrame: A single-row DataFrame containing portfolio summary statistics:
-            - ``Count`` (int): Number of days in the sample.
-            - ``Mean Return (%)`` (float): Annualized mean return (in percent).
-            - ``Volatility (%)`` (float): Annualized volatility (in percent).
-            - ``Total Return (%)`` (float): Total return over the period (in percent).
-            - ``Sharpe`` (float): Sharpe ratio.
+    pl.DataFrame
+        A single-row DataFrame containing portfolio summary statistics:
+
+        - ``Count`` (int): Number of days in the sample.
+        - ``Mean Return (%)`` (float): Annualized mean return (in percent).
+        - ``Volatility (%)`` (float): Annualized volatility (in percent).
+        - ``Total Return (%)`` (float): Total return over the period (in percent).
+        - ``Sharpe`` (float): Sharpe ratio.
 
     Notes
     -----
-        - Annualization assumes 252 trading days per year.
-        - Returns are converted to percentages for readability.
-        - Sharpe ratio is calculated as ``mean_return / volatility``.
+    - Annualization assumes 252 trading days per year.
+    - Returns are converted to percentages for readability.
+    - Sharpe ratio is calculated as ``mean_return / volatility``.
 
     Examples
     --------
@@ -196,26 +206,30 @@ def generate_leverage_summary_table(leverage: LeverageSchema) -> pl.DataFrame:
     including mean, min, max, and standard deviation.
 
     Parameters
-    ----
-        leverage (LeverageSchema): Portfolio leverage validated against LeverageSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``leverage`` (float): Daily portfolio leverage.
+    ----------
+    leverage : LeverageSchema
+        Portfolio leverage validated against LeverageSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``leverage`` (float): Daily portfolio leverage.
 
     Returns
     -------
-        pl.DataFrame: A single-row DataFrame containing leverage summary statistics:
-            - ``Count`` (int): Number of days in the sample.
-            - ``Mean Leverage`` (float): Average leverage.
-            - ``Min Leverage`` (float): Minimum leverage.
-            - ``Max Leverage`` (float): Maximum leverage.
-            - ``Std Leverage`` (float): Standard deviation of leverage.
+    pl.DataFrame
+        A single-row DataFrame containing leverage summary statistics:
+
+        - ``Count`` (int): Number of days in the sample.
+        - ``Mean Leverage`` (float): Average leverage.
+        - ``Min Leverage`` (float): Minimum leverage.
+        - ``Max Leverage`` (float): Maximum leverage.
+        - ``Std Leverage`` (float): Standard deviation of leverage.
 
     Notes
     -----
-        - Leverage values are not annualized or converted to percentages.
-        - Leverage = 1.0 indicates fully invested with no leverage or shorting.
-        - Leverage > 1.0 indicates use of margin or shorting.
+    - Leverage values are not annualized or converted to percentages.
+    - Leverage = 1.0 indicates fully invested with no leverage or shorting.
+    - Leverage > 1.0 indicates use of margin or shorting.
 
     Examples
     --------
@@ -261,27 +275,31 @@ def generate_drawdown_summary_table(drawdown: DrawdownSchema) -> pl.DataFrame:
     including mean, min (max drawdown), current drawdown, and longest drawdown period.
 
     Parameters
-    ----
-        drawdown (DrawdownSchema): Portfolio drawdowns validated against DrawdownSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``drawdown`` (float): Daily portfolio drawdown (≤ 0).
+    ----------
+    drawdown : DrawdownSchema
+        Portfolio drawdowns validated against DrawdownSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``drawdown`` (float): Daily portfolio drawdown (≤ 0).
 
     Returns
     -------
-        pl.DataFrame: A single-row DataFrame containing drawdown summary statistics:
-            - ``Count`` (int): Number of days in the sample.
-            - ``Mean Drawdown (%)`` (float): Average drawdown (in percent).
-            - ``Max Drawdown (%)`` (float): Maximum drawdown (in percent).
-            - ``Current Drawdown (%)`` (float): Most recent drawdown (in percent).
-            - ``Longest Drawdown (days)`` (int): Longest consecutive period in drawdown.
+    pl.DataFrame
+        A single-row DataFrame containing drawdown summary statistics:
+
+        - ``Count`` (int): Number of days in the sample.
+        - ``Mean Drawdown (%)`` (float): Average drawdown (in percent).
+        - ``Max Drawdown (%)`` (float): Maximum drawdown (in percent).
+        - ``Current Drawdown (%)`` (float): Most recent drawdown (in percent).
+        - ``Longest Drawdown (days)`` (int): Longest consecutive period in drawdown.
 
     Notes
     -----
-        - Drawdowns are expressed as negative percentages.
-        - A drawdown of 0% indicates the portfolio is at a new peak.
-        - Max Drawdown represents the largest peak-to-trough decline.
-        - Longest Drawdown counts consecutive days where drawdown < 0.
+    - Drawdowns are expressed as negative percentages.
+    - A drawdown of 0% indicates the portfolio is at a new peak.
+    - Max Drawdown represents the largest peak-to-trough decline.
+    - Longest Drawdown counts consecutive days where drawdown < 0.
 
     Examples
     --------

@@ -16,27 +16,31 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
 
     Parameters
     ----------
-        weights (PortfolioSchema): Portfolio weights validated against PortfolioSchema.
-            Must include the following columns:
-            - ``date`` (date): The date for each weight.
-            - ``barrid`` (str): The unique asset identifier.
-            - ``weight`` (float): The portfolio weight assigned to the asset.
+    weights : PortfolioSchema
+        Portfolio weights validated against PortfolioSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The date for each weight.
+        - ``barrid`` (str): The unique asset identifier.
+        - ``weight`` (float): The portfolio weight assigned to the asset.
 
     Returns
     -------
-        MultiPortfolioRetSchema: A validated DataFrame containing portfolio returns with the
+    MultiPortfolioRetSchema
+        A validated DataFrame containing portfolio returns with the
         following columns:
-            - ``date`` (date): The observation date.
-            - ``portfolio`` (str): Portfolio type; one of
-              ``"total"``, ``"benchmark"``, or ``"active"``.
-            - ``return`` (float): The weighted forward return for the portfolio
-              on the given date.
+
+        - ``date`` (date): The observation date.
+        - ``portfolio`` (str): Portfolio type; one of
+          ``"total"``, ``"benchmark"``, or ``"active"``.
+        - ``return`` (float): The weighted forward return for the portfolio
+          on the given date.
 
     Notes
     -----
-        - Asset returns are sourced via ``load_assets`` with ``fwd_return`` column.
-        - Benchmark weights are sourced via ``load_benchmark``.
-        - Returns are computed as the weighted sum of forward returns by portfolio.
+    - Asset returns are sourced via ``load_assets`` with ``fwd_return`` column.
+    - Benchmark weights are sourced via ``load_benchmark``.
+    - Returns are computed as the weighted sum of forward returns by portfolio.
 
     Examples
     --------
@@ -102,24 +106,28 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
 
     Parameters
     ----------
-        weights (PortfolioSchema): Portfolio weights validated against PortfolioSchema.
-            Must include the following columns:
-            - ``date`` (date): The date for each weight.
-            - ``barrid`` (str): The unique asset identifier.
-            - ``weight`` (float): The portfolio weight assigned to the asset.
+    weights : PortfolioSchema
+        Portfolio weights validated against PortfolioSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The date for each weight.
+        - ``barrid`` (str): The unique asset identifier.
+        - ``weight`` (float): The portfolio weight assigned to the asset.
 
     Returns
     -------
-        PortfolioRetSchema: A validated DataFrame containing portfolio returns with the
+    PortfolioRetSchema
+        A validated DataFrame containing portfolio returns with the
         following columns:
-            - ``date`` (date): The observation date.
-            - ``return`` (float): The weighted forward return for the portfolio
-              on the given date.
+
+        - ``date`` (date): The observation date.
+        - ``return`` (float): The weighted forward return for the portfolio
+          on the given date.
 
     Notes
     -----
-        - Asset returns are sourced via ``load_assets`` with ``fwd_return`` column.
-        - Returns are computed as the weighted sum of forward returns by portfolio.
+    - Asset returns are sourced via ``load_assets`` with ``fwd_return`` column.
+    - Returns are computed as the weighted sum of forward returns by portfolio.
 
     Examples
     --------

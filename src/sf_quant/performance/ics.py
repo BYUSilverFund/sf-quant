@@ -18,40 +18,48 @@ def generate_alpha_ics(
 
     Parameters
     ----------
-        alphas (pl.DataFrame): A Polars DataFrame containing alpha signals.
-            Must include the following columns:
-            - ``date`` (date): The observation date of the alpha.
-            - ``barrid`` (str): Unique asset identifier.
-            - ``alpha`` (float): Alpha value for the asset on the given date.
-            Notes:
-            - Must be validated against the ``AlphaSchema`` before calling this function.
-        rets (pl.DataFrame): A Polars DataFrame containing realized forward returns. Should
-            include fwd_returns for at least [window] days after the end of the alpha period.
-            Must include the following columns:
-            - ``date`` (date): The date of the return.
-            - ``barrid`` (str): Unique asset identifier.
-            - ``fwd_return`` (float): Realized return for the asset on the given date.
-        method (str, optional): Method to compute IC. Either ``"pearson"`` for raw
-            correlation or ``"rank"`` for Spearman correlation on ranks. Defaults to
-            ``"rank"``.
-        window (int, optional): Number of days to compute rolling returns over. Defaults to 22.
+    alphas : pl.DataFrame
+        A Polars DataFrame containing alpha signals.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date of the alpha.
+        - ``barrid`` (str): Unique asset identifier.
+        - ``alpha`` (float): Alpha value for the asset on the given date.
+
+        Must be validated against the ``AlphaSchema`` before calling this function.
+    rets : pl.DataFrame
+        A Polars DataFrame containing realized forward returns. Should
+        include fwd_returns for at least [window] days after the end of the alpha period.
+        Must include the following columns:
+
+        - ``date`` (date): The date of the return.
+        - ``barrid`` (str): Unique asset identifier.
+        - ``fwd_return`` (float): Realized return for the asset on the given date.
+    method : str, optional
+        Method to compute IC. Either ``"pearson"`` for raw
+        correlation or ``"rank"`` for Spearman correlation on ranks. Defaults to
+        ``"rank"``.
+    window : int, optional
+        Number of days to compute rolling returns over. Defaults to 22.
 
     Returns
     -------
-        pl.DataFrame: A Polars DataFrame containing ICs by date with the following columns:
-            - ``date`` (date): The observation date.
-            - ``ic`` (float): Information coefficient for that date.
-            - ``n`` (int): Number of observations used to compute the IC.
+    pl.DataFrame
+        A Polars DataFrame containing ICs by date with the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``ic`` (float): Information coefficient for that date.
+        - ``n`` (int): Number of observations used to compute the IC.
 
     Notes
     -----
-        - The function first shifts alpha values by one day per asset to align with
-          the next day's realized return.
-        - Observations with null or non-finite alpha or return values are excluded.
-        - Spearman IC is computed by ranking alpha and return values within each date
-          and then calculating the Pearson correlation of ranks.
-        - Users should validate that input DataFrames conform to the expected schema
-          to avoid runtime errors.
+    - The function first shifts alpha values by one day per asset to align with
+      the next day's realized return.
+    - Observations with null or non-finite alpha or return values are excluded.
+    - Spearman IC is computed by ranking alpha and return values within each date
+      and then calculating the Pearson correlation of ranks.
+    - Users should validate that input DataFrames conform to the expected schema
+      to avoid runtime errors.
 
     Examples
     --------

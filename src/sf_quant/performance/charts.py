@@ -24,28 +24,35 @@ def generate_returns_chart(
 
     Parameters
     ----------
-        returns (PortfolioRetSchema): Portfolio returns validated against PortfolioRetSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``return`` (float): Daily portfolio return.
-        title (str): The chart's main title.
-        subtitle (str | None, optional): The chart's subtitle, shown beneath the
-            main title. Defaults to ``None``.
-        log_scale (bool, optional): If ``True``, plot cumulative log returns instead
-            of cumulative returns. Defaults to ``False``.
-        file_name (str, optional): If not ``None``, the plot is saved to the given
-            file path. Defaults to just displaying the chart.
+    returns : PortfolioRetSchema
+        Portfolio returns validated against PortfolioRetSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``return`` (float): Daily portfolio return.
+    title : str
+        The chart's main title.
+    subtitle : str or None, optional
+        The chart's subtitle, shown beneath the
+        main title. Defaults to ``None``.
+    log_scale : bool, optional
+        If ``True``, plot cumulative log returns instead
+        of cumulative returns. Defaults to ``False``.
+    file_name : str, optional
+        If not ``None``, the plot is saved to the given
+        file path. Defaults to just displaying the chart.
 
     Returns
     -------
-        None: Displays the cumulative returns chart using Matplotlib and Seaborn.
+    None
+        Displays the cumulative returns chart using Matplotlib and Seaborn.
 
     Notes
     -----
-        - Cumulative returns are computed as the compounded product of daily returns.
-        - Returns are expressed in percentages for visualization.
-        - If ``log_scale=True``, both daily and cumulative returns are transformed
-          using the natural log (``log1p``).
+    - Cumulative returns are computed as the compounded product of daily returns.
+    - Returns are expressed in percentages for visualization.
+    - If ``log_scale=True``, both daily and cumulative returns are transformed
+      using the natural log (``log1p``).
     """
     returns_wide = (
         returns.sort("date")
@@ -107,30 +114,37 @@ def generate_multi_returns_chart(
 
     Parameters
     ----------
-        returns (MultiPortfolioRetSchema): Portfolio returns validated against MultiPortfolioRetSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``portfolio`` (str): Portfolio name or identifier.
-            - ``return`` (float): Daily portfolio return.
-        title (str): The chart's main title.
-        subtitle (str | None, optional): The chart's subtitle, shown beneath the
-            main title. Defaults to ``None``.
-        log_scale (bool, optional): If ``True``, plot cumulative log returns instead
-            of cumulative returns. Defaults to ``False``.
-        file_name (str, optional): If not ``None``, the plot is saved to the given
-            file path. Defaults to just displaying the chart.
+    returns : MultiPortfolioRetSchema
+        Portfolio returns validated against MultiPortfolioRetSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``portfolio`` (str): Portfolio name or identifier.
+        - ``return`` (float): Daily portfolio return.
+    title : str
+        The chart's main title.
+    subtitle : str or None, optional
+        The chart's subtitle, shown beneath the
+        main title. Defaults to ``None``.
+    log_scale : bool, optional
+        If ``True``, plot cumulative log returns instead
+        of cumulative returns. Defaults to ``False``.
+    file_name : str, optional
+        If not ``None``, the plot is saved to the given
+        file path. Defaults to just displaying the chart.
 
     Returns
     -------
-        None: Displays the cumulative returns chart using Matplotlib and Seaborn.
+    None
+        Displays the cumulative returns chart using Matplotlib and Seaborn.
 
     Notes
     -----
-        - Cumulative returns are computed as the compounded product of daily
-          returns for each portfolio.
-        - Returns are expressed in percentages for visualization.
-        - If ``log_scale=True``, both daily and cumulative returns are transformed
-          using the natural log (``log1p``).
+    - Cumulative returns are computed as the compounded product of daily
+      returns for each portfolio.
+    - Returns are expressed in percentages for visualization.
+    - If ``log_scale=True``, both daily and cumulative returns are transformed
+      using the natural log (``log1p``).
     """
     returns_wide = (
         returns.sort("date", "portfolio")
@@ -191,25 +205,31 @@ def generate_leverage_chart(
 
     Parameters
     ----------
-        leverage (LeverageSchema): Portfolio leverage validated against LeverageSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``leverage`` (float): Daily portfolio leverage.
-        title (str): The chart's main title.
-        subtitle (str | None, optional): The chart's subtitle, shown beneath the
-            main title. Defaults to ``None``.
-        file_name (str, optional): If not ``None``, the plot is saved to the given
-            file path. Defaults to just displaying the chart.
+    leverage : LeverageSchema
+        Portfolio leverage validated against LeverageSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``leverage`` (float): Daily portfolio leverage.
+    title : str
+        The chart's main title.
+    subtitle : str or None, optional
+        The chart's subtitle, shown beneath the
+        main title. Defaults to ``None``.
+    file_name : str, optional
+        If not ``None``, the plot is saved to the given
+        file path. Defaults to just displaying the chart.
 
     Returns
     -------
-        None: Displays the leverage chart using Matplotlib and Seaborn.
+    None
+        Displays the leverage chart using Matplotlib and Seaborn.
 
     Notes
     -----
-        - Leverage = 1.0 indicates fully invested with no leverage or shorting.
-        - Leverage > 1.0 indicates use of margin or shorting.
-        - Leverage is expressed as a ratio (not percentage).
+    - Leverage = 1.0 indicates fully invested with no leverage or shorting.
+    - Leverage > 1.0 indicates use of margin or shorting.
+    - Leverage is expressed as a ratio (not percentage).
     """
     leverage_wide = leverage.sort("date")
 
@@ -245,23 +265,29 @@ def generate_drawdown_chart(
 
     Parameters
     ----------
-        drawdowns (DrawdownSchema): Portfolio drawdowns validated against DrawdownSchema.
-            Must include the following columns:
-            - ``date`` (date): The observation date.
-            - ``drawdown`` (float): Daily portfolio drawdown.
-        title (str): The chart's main title.
-        subtitle (str | None, optional): The chart's subtitle, shown beneath the
-            main title. Defaults to ``None``.
-        file_name (str, optional): If not ``None``, the plot is saved to the given
-            file path. Defaults to just displaying the chart.
+    drawdowns : DrawdownSchema
+        Portfolio drawdowns validated against DrawdownSchema.
+        Must include the following columns:
+
+        - ``date`` (date): The observation date.
+        - ``drawdown`` (float): Daily portfolio drawdown.
+    title : str
+        The chart's main title.
+    subtitle : str or None, optional
+        The chart's subtitle, shown beneath the
+        main title. Defaults to ``None``.
+    file_name : str, optional
+        If not ``None``, the plot is saved to the given
+        file path. Defaults to just displaying the chart.
 
     Returns
     -------
-        None: Displays the drawdown chart using Matplotlib and Seaborn.
+    None
+        Displays the drawdown chart using Matplotlib and Seaborn.
 
     Notes
     -----
-        - Drawdowns are expressed in percentages for visualization.
+    Drawdowns are expressed in percentages for visualization.
     """
     drawdowns_wide = (
         drawdowns.sort("date")

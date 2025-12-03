@@ -27,6 +27,7 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
     -------
     pl.DataFrame
         A square covariance matrix stored in a Polars DataFrame.
+
         - Rows and columns are indexed by ``barrid``.
         - Column ``barrid`` lists the asset identifiers.
         - Each subsequent column corresponds to the covariance of
@@ -34,8 +35,8 @@ def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFr
 
     Notes
     -----
-    - The input factor covariance matrix is assumed to be positive
-      semidefinite (PSD).
+    The input factor covariance matrix is assumed to be positive
+    semidefinite (PSD).
 
     Examples
     --------
