@@ -334,6 +334,19 @@ wheels = [
 ]
 
 [[package]]
+name = "fastexcel"
+version = "0.17.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/cd/70cbc40fb425893ca68e938a6b60d95fdc4762b3bf09b99e502a7893be2a/fastexcel-0.17.2.tar.gz", hash = "sha256:2ff4d8268d0219f642a4680ae6d1612e14ce29633705a51f84dd8ff46be7d92e", size = 57712, upload-time = "2025-11-18T10:57:31.809Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/84/fee37d20fcb3ce7c748190d9ca0a91256e73534b343075c234aac32a26ca/fastexcel-0.17.2-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:5fa0fee5105a8c2976184d667577211bdc741e429090f7b7887250c0a4dab85b", size = 3077922, upload-time = "2025-11-18T10:57:21.715Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/df/0a7ca80243973c1b059c3727adc7e8298d34f05d5dbc7b712bddffb3701b/fastexcel-0.17.2-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:0efbefdad488983148f41597dd4260249d782a59094310b40fa42e80e1f5b437", size = 2867276, upload-time = "2025-11-18T10:57:23.593Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/94/e422418ffc169e0632e145c1216d7bc80ddd62edd8343fc62457a7aa4f55/fastexcel-0.17.2-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ebe1286f22977792790e16c08dba701054e69eeb8cd5c5b27f3f1f99588dfe82", size = 3200212, upload-time = "2025-11-18T10:57:15.007Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/88/f3be67ec2f773574c822cc3c69ca8dc1dbb0f8e1da82046d1ce36bff6bca/fastexcel-0.17.2-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c34fb2bf4bbf2d0a30f0059b60bfb852215e873d4260fdb2bf4bffe8951041fe", size = 3374077, upload-time = "2025-11-18T10:57:16.425Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/51/9e32ba4529f35f5dec1bdc121fb657a9fb82e59d72ce1f11ab32a2ef2736/fastexcel-0.17.2-cp310-abi3-win_amd64.whl", hash = "sha256:1c5f4f808a7489321667c8e8a8168282e90b6af07a0fb11207f7309604a87503", size = 2897237, upload-time = "2025-11-18T10:57:28.862Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1273,6 +1286,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "fastexcel" },
     { name = "pydata-sphinx-theme" },
     { name = "sphinx" },
     { name = "sphinx-autobuild" },
@@ -1293,6 +1307,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "fastexcel", specifier = ">=0.17.2" },
     { name = "pydata-sphinx-theme", specifier = ">=0.16.1" },
     { name = "sphinx", specifier = ">=8.2.3" },
     { name = "sphinx-autobuild", specifier = ">=2025.8.25" },

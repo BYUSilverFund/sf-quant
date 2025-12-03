@@ -1,0 +1,10 @@
+Metric,Value
+Beta,0.6329063808960423
+Correlation,0.8945703899177203
+R_Squared,0.8002561825175422
+Our_Volatility,0.12597795221886693
+BAI_Volatility,0.17806132034554187
+Covariance,0.020066824525673245
+Our_Positions,91.0
+BAI_Positions,28.0
+Overlapping_Positions,3.0
