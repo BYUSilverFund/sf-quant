@@ -39,7 +39,9 @@ class Table:
 
 assets_table = Table("assets", os.getenv("ASSETS_TABLE"))
 crsp_daily_table = Table("crsp_daily", os.getenv("CRSP_DAILY_TABLE"))
+crsp_v2_daily_table = Table("crsp_v2_daily", os.getenv("CRSP_V2_DAILY_TABLE"))
 crsp_monthly_table = Table("crsp_monthly", os.getenv("CRSP_MONTHLY_TABLE"))
+crsp_v2_monthly_table = Table("crsp_v2_monthly", os.getenv("CRSP_V2_MONTHLY_TABLE"))
 crsp_events_table = Table("crsp_events", os.getenv("CRSP_EVENTS_TABLE"))
 exposures_table = Table("exposures", os.getenv("EXPOSURES_TABLE"))
 covariances_table = Table("covariances", os.getenv("COVARIANCES_TABLE"))
