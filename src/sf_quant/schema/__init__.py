@@ -9,6 +9,7 @@ from .returns_schema import PortfolioRetSchema, MultiPortfolioRetSchema, Securit
 from .leverage_schema import LeverageSchema
 from .drawdown_schema import DrawdownSchema
 from .ic_schema import ICSchema
+from .fama_french_schema import FamaFrenchSchema
 
 __all__ = [
     "PortfolioSchema",
@@ -19,4 +20,5 @@ __all__ = [
     "DrawdownSchema",
     "AlphaSchema",
     "ICSchema",
+    "FamaFrenchSchema",
 ]
