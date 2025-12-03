@@ -14,15 +14,21 @@ Data
 
    load_assets
    load_assets_by_date
-   load_crsp_daily
-   load_crsp_monthly
-   load_benchmark
-   load_exposures
-   load_factors
    get_assets_columns
+   load_crsp_daily
    get_crsp_daily_columns
+   load_crsp_v2_daily
+   get_crsp_v2_daily_columns
+   load_crsp_monthly
    get_crsp_monthly_columns
+   load_crsp_v2_monthly
+   get_crsp_v2_monthly_columns
+   load_exposures
    get_exposures_columns
+   construct_covariance_matrix
+   load_benchmark
+   load_factors
    get_factors_columns
    get_factor_names
-   construct_covariance_matrix
+   load_fama_french
+   get_fama_french_columns
