@@ -6,12 +6,13 @@ def generate_alpha_ics(
     alphas: dy.DataFrame[AlphaSchema],
     rets:   dy.DataFrame[SecurityRetSchema],
     method: str = "rank",      # "pearson" or "rank"
+    window: int = 22
     ) -> pl.DataFrame:
     """
     Compute Information Coefficients (ICs) between previous-day alpha and realized returns.
 
-    This function calculates the IC for each date by aligning the lagged alpha signal
-    (alpha from the previous day) with the realized return on the current day for each
+    This function calculates the IC for each date by aligning the alpha signal
+    with the realized return at the end of the given window for each
     asset. IC can be computed either as a Pearson correlation (raw values) or as a 
     Spearman correlation (ranked values).
 
@@ -24,14 +25,16 @@ def generate_alpha_ics(
             - ``alpha`` (float): Alpha value for the asset on the given date.
             Notes:
             - Must be validated against the ``AlphaSchema`` before calling this function.
-        rets (pl.DataFrame): A Polars DataFrame containing realized forward returns.
+        rets (pl.DataFrame): A Polars DataFrame containing realized forward returns. Should
+            include fwd_returns for at least [window] days after the end of the alpha period.
             Must include the following columns:
             - ``date`` (date): The date of the return.
             - ``barrid`` (str): Unique asset identifier.
-            - ``return`` (float): Realized return for the asset on the given date.
+            - ``fwd_return`` (float): Realized return for the asset on the given date.
         method (str, optional): Method to compute IC. Either ``"pearson"`` for raw
             correlation or ``"rank"`` for Spearman correlation on ranks. Defaults to
             ``"rank"``.
+        window (int, optional): Number of days to compute rolling returns over. Defaults to 22.
 
     Returns
     -------
@@ -65,7 +68,7 @@ def generate_alpha_ics(
     ...     {
     ...         'date': [dt.date(2024, 1, 3), dt.date(2024, 1, 4)],
     ...         'barrid': ['USA06Z1', 'USA06Z1'],
-    ...         'return': [0.01, -0.02]
+    ...         'fwd_return': [0.01, -0.02]
     ...     }
     ... )
 
@@ -84,21 +87,31 @@ def generate_alpha_ics(
     └────────────┴──────────┴─────┘
     """
     # Lag alpha by security
-    a_lag = (
+    alphas = (
         alphas
         .sort(["barrid", "date"])
+        .select("date", "barrid", "alpha")
+    )
+
+    rets = (
+        rets
+        .select("date", "barrid", "fwd_return")
+        .sort(["barrid", "date"])
         .with_columns(
-            pl.col("alpha").shift(1).over("barrid").alias("alpha_lag")
-        )
-        .select("date", "barrid", "alpha_lag")
+            pl.col("fwd_return").log1p()
+            .rolling_sum(window).over("barrid")
+            .exp().sub(1).shift(-window + 1)
+            .alias("window_return")
+            )
     )
 
     # Join with returns
     df = (
-        a_lag.join(rets.select("date", "barrid", "return"), on=["date", "barrid"], how="inner")
-             .filter(pl.col("alpha_lag").is_not_null()
-                     & pl.col("alpha_lag").is_finite()
-                     & pl.col("return").is_finite())
+        alphas.join(rets.select("date", "barrid", "window_return"), on=["date", "barrid"], how="inner")
+             .filter(pl.col("alpha").is_not_null()
+                     & pl.col("alpha").is_finite()
+                     & pl.col("window_return").is_not_null()
+                     & pl.col("window_return").is_finite())
     )
 
     m = method.lower()
@@ -110,13 +123,13 @@ def generate_alpha_ics(
             df.group_by("date")
               .agg(
                   pl.len().alias("n"),
-                  pl.corr("alpha_lag", "return").alias("ic"),
+                  pl.corr("alpha", "window_return").alias("ic"),
               )
         )
     else:  # rank
         ranked = df.with_columns(
-            pl.col("alpha_lag").rank(method="average").over("date").alias("alpha_r"),
-            pl.col("return").rank(method="average").over("date").alias("ret_r"),
+            pl.col("alpha").rank(method="average").over("date").alias("alpha_r"),
+            pl.col("window_return").rank(method="average").over("date").alias("ret_r"),
         )
         ic = (
             ranked.group_by("date")

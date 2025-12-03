@@ -8,7 +8,7 @@ def generate_drawdown_from_returns(returns: PortfolioRetSchema) -> DrawdownSchem
 
     Parameters
     ----------
-        returns (PortfolioRetSchema): Portfolio returns validated against PortfolioReturnsSchema.
+        returns (PortfolioRetSchema): Portfolio returns validated against PortfolioRetSchema.
             Must include the following columns:
             - ``date`` (date): The observation date.
             - ``return`` (float): Daily portfolio return.
@@ -23,7 +23,7 @@ def generate_drawdown_from_returns(returns: PortfolioRetSchema) -> DrawdownSchem
     -----
         - Drawdown is calculated as (current_value / peak_value) - 1
         - Values are ≤ 0, where 0 indicates a new peak
-        - Calculated per portfolio using grouped operations
+        - Calculated for a single portfolio time series
 
         
     Examples

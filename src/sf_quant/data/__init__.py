@@ -13,6 +13,7 @@ from .covariances import load_covariances_by_date, get_covariances_columns
 from .covariance_matrix import construct_covariance_matrix
 from .benchmark import load_benchmark
 from .factors import load_factors, get_factors_columns, get_factor_names
+from .fama_french import load_fama_french, get_fama_french_columns
 
 __all__ = [
     "load_assets",
@@ -31,5 +32,7 @@ __all__ = [
     "load_benchmark",
     "load_factors",
     "get_factors_columns",
-    "get_factor_names"
+    "get_factor_names",
+    "load_fama_french",
+    "get_fama_french_columns",
 ]

@@ -119,7 +119,6 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
     Notes
     -----
         - Asset returns are sourced via ``load_assets`` with ``fwd_return`` column.
-        - Benchmark weights are sourced via ``load_benchmark``.
         - Returns are computed as the weighted sum of forward returns by portfolio.
 
     Examples

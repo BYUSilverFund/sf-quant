@@ -1,3 +1,4 @@
+import os
 import polars as pl
 
 from ._tables import (
@@ -66,3 +67,5 @@ benchmark = (
         .alias("weight"),
     )
 )
+
+fama_french = pl.scan_parquet(f"{os.getenv('FF_TABLE')}/ff5_factors.parquet")
