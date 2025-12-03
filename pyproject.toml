@@ -1,6 +1,6 @@
 [project]
 name = "sf-quant"
-version = "0.1.15"
+version = "0.1.16"
 description = "Python package for Silver Fund quant team research and trading tools."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
