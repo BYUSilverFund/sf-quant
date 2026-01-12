@@ -12,6 +12,7 @@ __all__ = [
     "mve_optimizer",
     "LongOnly",
     "FullInvestment",
+    "ZeroInvestment",
     "NoBuyingOnMargin",
     "UnitBeta",
     "ZeroBeta"
