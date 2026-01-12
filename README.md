@@ -14,7 +14,7 @@ pip install sf-quant
 To run a local server of the sphinx documentation run
 
 ```bash
-sphinx-autobuild docs docs/_build/html
+uv run sphinx-autobuild docs docs/_build/html
 ```
 
 ## Release Process
