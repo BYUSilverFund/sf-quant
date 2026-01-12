@@ -20,6 +20,7 @@ extensions = [
 ]
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+autosummary_generate = True
 
 language = "en"
 
