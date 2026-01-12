@@ -37,6 +37,22 @@ class FullInvestment(Constraint):
         return cp.sum(weights) == 1
 
 
+class ZeroInvestment(Constraint):
+    """
+    Enforces a Zero-investment constraint.
+
+    This constraint ensures that the sum of all portfolio weights equals 0.
+
+    Examples
+    --------
+    >>> weights = cp.Variable(3)
+    >>> constraint = ZeroInvestment()(weights)
+    """
+
+    def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
+        return cp.sum(weights) == 0
+    
+
 class LongOnly(Constraint):
     """
     Enforces a long-only constraint.

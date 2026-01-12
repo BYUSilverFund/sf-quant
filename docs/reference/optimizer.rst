@@ -14,6 +14,7 @@ Optimizer
 
    mve_optimizer
    FullInvestment
+   ZeroInvestment
    LongOnly
    NoBuyingOnMargin
    UnitBeta

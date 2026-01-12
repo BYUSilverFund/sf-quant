@@ -33,7 +33,7 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
         - ``date`` (date): The observation date.
         - ``portfolio`` (str): Portfolio type; one of
           ``"total"``, ``"benchmark"``, or ``"active"``.
-        - ``return`` (float): The weighted forward return for the portfolio
+        - ``fwd_return`` (float): The weighted forward return for the portfolio
           on the given date.
 
     Notes
@@ -54,11 +54,11 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     ...         'weight': [0.5, 0.5, 0.3, 0.7]
     ...     }
     ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
+    >>> returns = sfp.generate_multi_returns_from_weights(weights)
     >>> returns
     shape: (6, 3)
     ┌────────────┬───────────┬────────────┐
-    │ date       ┆ portfolio ┆ return     │
+    │ date       ┆ portfolio ┆ fwd_return │
     │ ---        ┆ ---       ┆ ---        │
     │ date       ┆ str       ┆ f64        │
     ╞════════════╪═══════════╪════════════╡
@@ -91,7 +91,7 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
             value_name="weight",
         )
         .group_by("date", "portfolio")
-        .agg(pl.col("return").mul("weight").sum().alias("return"))
+        .agg(pl.col("return").mul("weight").sum().alias("fwd_return"))
         .sort("date", "portfolio")
     )
     return MultiPortfolioRetSchema.validate(result)
@@ -121,7 +121,7 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         following columns:
 
         - ``date`` (date): The observation date.
-        - ``return`` (float): The weighted forward return for the portfolio
+        - ``fwd_return`` (float): The weighted forward return for the portfolio
           on the given date.
 
     Notes
@@ -145,7 +145,7 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
     >>> returns
     shape: (2, 2)
     ┌────────────┬────────────┐
-    │ date       ┆ return     │
+    │ date       ┆ fwd_return │
     │ ---        ┆ ---        │
     │ date       ┆ f64        │
     ╞════════════╪════════════╡
@@ -164,7 +164,7 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         weights.join(returns, on=["date", "barrid"], how="left")
         .with_columns(pl.col("return").truediv(100))
         .group_by("date")
-        .agg(pl.col("return").mul("weight").sum().alias("return"))
+        .agg(pl.col("return").mul("weight").sum().alias("fwd_return"))
         .sort("date")
     )
     return PortfolioRetSchema.validate(result)
