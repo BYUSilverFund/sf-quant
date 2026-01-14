@@ -137,9 +137,8 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         following columns:
 
         - ``date`` (date): The observation date.
-        - ``fwd_return`` (float): The weighted forward return for the portfolio
-          on the given date.
-        - ``return`` (float): The weighted return for the portfolio on the given date
+        - ``fwd_return`` (float): The weighted forward return for the portfolio on the given date.
+        - ``return`` (float): The weighted return for the portfolio on the given date.
 
     Notes
     -----
