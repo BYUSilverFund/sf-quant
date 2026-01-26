@@ -28,13 +28,13 @@ def generate_alpha_ics(
 
         Must be validated against the ``AlphaSchema`` before calling this function.
     rets : pl.DataFrame
-        A Polars DataFrame containing realized forward returns. Should
-        include fwd_returns for at least [window] days after the end of the alpha period.
+        A Polars DataFrame containing realized returns. Should
+        include returns for at least [window] days after the end of the alpha period.
         Must include the following columns:
 
         - ``date`` (date): The date of the return.
         - ``barrid`` (str): Unique asset identifier.
-        - ``fwd_return`` (float): Realized return for the asset on the given date.
+        - ``return`` (float): Realized return for the asset on the given date.
     method : str, optional
         Method to compute IC. Either ``"pearson"`` for raw
         correlation or ``"rank"`` for Spearman correlation on ranks. Defaults to
@@ -76,7 +76,7 @@ def generate_alpha_ics(
     ...     {
     ...         'date': [dt.date(2024, 1, 3), dt.date(2024, 1, 4)],
     ...         'barrid': ['USA06Z1', 'USA06Z1'],
-    ...         'fwd_return': [0.01, -0.02]
+    ...         'return': [0.01, -0.02]
     ...     }
     ... )
 
@@ -103,10 +103,10 @@ def generate_alpha_ics(
 
     rets = (
         rets
-        .select("date", "barrid", "fwd_return")
+        .select("date", "barrid", "return")
         .sort(["barrid", "date"])
         .with_columns(
-            pl.col("fwd_return").log1p()
+            pl.col("return").log1p()
             .rolling_sum(window).over("barrid")
             .exp().sub(1).shift(-window + 1)
             .alias("window_return")
