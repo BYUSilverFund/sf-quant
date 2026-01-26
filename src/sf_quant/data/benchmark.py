@@ -58,3 +58,5 @@ def load_benchmark(start: dt.date, end: dt.date) -> pl.DataFrame:
         .sort(["barrid", "date"])
         .collect()
     )
+
+def load_benchmark_returns()
