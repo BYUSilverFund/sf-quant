@@ -1,4 +1,3 @@
-import os
 import polars as pl
 
 from ._tables import (
@@ -8,6 +7,7 @@ from ._tables import (
     crsp_monthly_table,
     crsp_v2_monthly_table,
     crsp_v2_daily_table,
+    ff_table,
 )
 
 crsp_events_monthly = (
@@ -103,4 +103,18 @@ benchmark = (
     )
 )
 
-fama_french = pl.scan_parquet(f"{os.getenv('FF_TABLE')}/ff5_factors.parquet")
+benchmark_returns = (
+    assets_table.scan()
+    .filter(pl.col('in_universe'))
+    .select(
+        "date",
+        "barrid",
+        pl.col("market_cap")
+        .truediv(pl.col("market_cap").sum())
+        .over("date")
+        .alias("weight"),
+        "return",
+    )
+)
+
+fama_french = ff_table.scan()
