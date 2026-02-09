@@ -150,7 +150,10 @@ def get_factor_names(
     ["USSLOWL_AERODEF", "USSLOWL_AIRLINES", "USSLOWL_BANKS", ...]
     """
 
-    if type == "style": return style_factors
-    if type == "sector": return sector_factors
-    if type is None: return factors
+    if type == "style": 
+        return style_factors
+    if type == "sector": 
+        return sector_factors
+    if type is None: 
+        return factors
     raise ValueError(f"Invalid type: {type!r}. Must be 'style', 'sector', or None.")

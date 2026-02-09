@@ -1,7 +1,13 @@
+import sys
+from pathlib import Path
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+
+# Add project source to path for autodoc
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information

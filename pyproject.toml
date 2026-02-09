@@ -1,6 +1,6 @@
 [project]
 name = "sf-quant"
-version = "0.1.18"
+version = "0.1.20"
 description = "Python package for Silver Fund quant team research and trading tools."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -15,7 +15,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "tqdm>=4.67.1",
     "dataframely>=1.14.0",
-    "polars_ols>=0.3.5",
+    "polars-ols>=0.3.5",
     "ipywidgets>=8.1.8",
 ]
 
