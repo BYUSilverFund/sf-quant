@@ -2,7 +2,7 @@ import polars as pl
 import matplotlib.pyplot as plt
 
 
-def signal_stats(signal: pl.DataFrame, column: str = "signal") -> pl.DataFrame:
+def get_signal_stats(signal: pl.DataFrame, column: str = "signal") -> pl.DataFrame:
     """
     Compute statistical measures of a signal column.
 
@@ -47,7 +47,7 @@ def signal_stats(signal: pl.DataFrame, column: str = "signal") -> pl.DataFrame:
     ])
 
 
-def signal_distribution(signal: pl.DataFrame, column: str = "signal") -> None:
+def get_signal_distribution(signal: pl.DataFrame, column: str = "signal") -> None:
     """
     Plot the distribution of a signal column as a histogram.
 

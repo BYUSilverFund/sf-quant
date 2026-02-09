@@ -1642,7 +1642,7 @@ wheels = [
 
 [[package]]
 name = "sf-quant"
-version = "0.1.18"
+version = "0.1.20"
 source = { editable = "." }
 dependencies = [
     { name = "cvxpy" },

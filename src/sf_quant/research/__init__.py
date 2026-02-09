@@ -10,13 +10,13 @@ from .quantile_portfolios import (
     beta_scale_ports,
 )
 from .ff_regression import run_ff_regression
-from .signal_analysis import signal_stats, signal_distribution
+from .signal_analysis import get_signal_stats, get_signal_distribution
 
 __all__ = [
     "generate_quantile_ports",
     "vol_scale_ports",
     "beta_scale_ports",
     "run_ff_regression",
-    "signal_stats",
-    "signal_distribution",
+    "get_signal_stats",
+    "get_signal_distribution",
 ]

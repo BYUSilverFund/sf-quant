@@ -1,5 +1,4 @@
 import polars as pl
-import polars_ols
 from sf_quant.data import load_fama_french
 
 

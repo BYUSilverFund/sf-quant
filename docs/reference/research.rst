@@ -16,5 +16,5 @@ Research
    vol_scale_ports
    beta_scale_ports
    run_ff_regression
-   signal_stats
-   signal_distribution
+   get_signal_stats
+   get_signal_distribution
