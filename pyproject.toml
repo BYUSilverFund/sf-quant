@@ -29,4 +29,6 @@ dev = [
     "sphinx>=8.2.3",
     "sphinx-autobuild>=2025.8.25",
     "pydata-sphinx-theme>=0.16.1",
+    "ruff>=0.15.0",
+    "ipykernel>=7.1.0",
 ]

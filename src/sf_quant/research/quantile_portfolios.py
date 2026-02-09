@@ -1,44 +1,10 @@
-import logging
 import polars as pl
-from ._schemas import SignalSchema
 from sf_quant.data.benchmark import load_benchmark_returns
 
-logger = logging.getLogger(__name__)
-
-def check_nulls_in_data(signal: pl.DataFrame, check_cols: list[str] | None = None) -> dict:
-    """
-    Check for nulls in signal data columns.
-
-    Parameters
-    ----------
-    signal : pl.DataFrame
-        Data to check for nulls.
-    check_cols : list[str], optional
-        Specific columns to check. If None, checks 'signal' and 'return' columns.
-
-    Returns
-    -------
-    dict
-        Dictionary with null counts for each checked column.
-    """
-    if check_cols is None:
-        check_cols = ['signal', 'return']
-
-    null_counts = signal.select([
-        pl.col(col).null_count().alias(f'{col}_nulls')
-        for col in check_cols if col in signal.columns
-    ]).row(0, named=True)
-
-    # Log warnings for any nulls found
-    for col, count in null_counts.items():
-        if count > 0:
-            logger.warning(f"Found {count} null values in {col}")
-
-    return null_counts
-
 def generate_quantile_ports(
-    signal: SignalSchema,
-    num_bins: int = 10
+    signal: pl.DataFrame,
+    num_bins: int = 10,
+    signal_col: str = 'signal'
 ) -> pl.DataFrame:
     """
     Generate quantile portfolios from signal data with vol and beta scaling.
@@ -49,7 +15,7 @@ def generate_quantile_ports(
 
     Parameters
     ----------
-    signal : SignalSchema
+    signal : pl.DataFrame
         Signal data containing at least:
 
         - ``date`` (date): The observation date.
@@ -91,14 +57,25 @@ def generate_quantile_ports(
     ...     'return': [0.01] * 100
     ... })
     >>> quantile_ports = sfr.generate_quantile_ports(signal_df, num_bins=5)
-    >>> quantile_ports.columns
-    ['date', 'p_1', 'p_2', 'p_3', 'p_4', 'p_5', 'spread', 'bmk_return', ...]
+    >>> quantile_ports.head()
+    shape: (5, 8)
+    ┌────────────┬────────┬────────┬────────┬────────┬────────┬────────┬──────────────┐
+    │ date       ┆ p_1    ┆ p_2    ┆ p_3    ┆ p_4    ┆ p_5    ┆ spread ┆ bmk_return   │
+    │ ---        ┆ ---    ┆ ---    ┆ ---    ┆ ---    ┆ ---    ┆ ---    ┆ ---          │
+    │ date       ┆ f64    ┆ f64    ┆ f64    ┆ f64    ┆ f64    ┆ f64    ┆ f64          │
+    ╞════════════╪════════╪════════╪════════╪════════╪════════╪════════╪══════════════╡
+    │ 2024-01-02 ┆ 0.01   ┆ 0.01   ┆ 0.01   ┆ 0.01   ┆ 0.01   ┆ 0.0    ┆ 0.005        │
+    │ 2024-01-02 ┆ 0.0095 ┆ 0.0105 ┆ 0.0102 ┆ 0.0098 ┆ 0.0103 ┆ 0.0008 ┆ 0.005        │
+    │ 2024-01-02 ┆ 0.0092 ┆ 0.0108 ┆ 0.01   ┆ 0.0099 ┆ 0.0107 ┆ 0.0015 ┆ 0.005        │
+    │ 2024-01-02 ┆ 0.0088 ┆ 0.0112 ┆ 0.0098 ┆ 0.0101 ┆ 0.0112 ┆ 0.0024 ┆ 0.005        │
+    │ 2024-01-02 ┆ 0.0085 ┆ 0.0115 ┆ 0.0096 ┆ 0.0102 ┆ 0.0118 ┆ 0.0033 ┆ 0.005        │
+    └────────────┴────────┴────────┴────────┴────────┴────────┴────────┴──────────────┘
     """
 
     df = (
         signal
         .with_columns(
-            pl.col('signal').qcut(num_bins, labels=[f"p_{i}" for i in range(1, num_bins + 1)]).alias('bin').over('date')
+            pl.col(signal_col).qcut(num_bins, labels=[f"p_{i}" for i in range(1, num_bins + 1)]).alias('bin').over('date')
         )
         .group_by(["date", "bin"])
         .agg(pl.col("return").mean().alias("ew_return"))
@@ -209,7 +186,7 @@ def beta_scale_ports(df: pl.DataFrame, market_col: str = "bmk_return", target_be
         The DataFrame with beta-scaled return columns:
 
         - ``p_1``, ``p_2``, ..., ``p_{num_bins}`` (float): Beta-scaled returns.
-        - ``spread`` (float): Beta-scaled long-short spread.
+        - Other columns remain unchanged.
 
     Notes
     -----

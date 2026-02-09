@@ -109,44 +109,25 @@ def run_ff_regression(
                 ).alias("stats")
             )
             .unnest("stats")
+            .explode("feature_names", "coefficients", "t_values") 
+            .with_columns(
+                pl.col("feature_names").replace(name_map)
+            )
             .select([
-                pl.col("feature_names").replace(name_map),
-                pl.col("coefficients").alias(p),
-                pl.col("t_values").alias(f"{p}_t")
+                pl.col("feature_names"),
+                pl.format("{} ({}){}", 
+                    pl.col("coefficients").round(4), 
+                    pl.col("t_values").round(2),
+                    pl.when(pl.col("t_values").abs() > 2)
+                    .then(pl.lit("*"))
+                    .otherwise(pl.lit(""))
+                ).alias(p)
             ])
         )
         results.append(res)
 
-    # combined_results = pl.concat(results)
+    final_df = results[0]
+    for other_df in results[1:]:
+        final_df = final_df.join(other_df, on="feature_names", how="left")
 
-    # # Pivot with portfolio as columns and feature_names as rows
-    # coef_pivot = combined_results.pivot(
-    #     on="portfolio",
-    #     index="feature_names",
-    #     values="coefficients"
-    # )
-
-    # t_pivot = combined_results.pivot(
-    #     on="portfolio",
-    #     index="feature_names",
-    #     values="t_values"
-    # )
-
-    # # Rename feature_names to statistic labels and add _t suffix for t-values
-    # coef_pivot = coef_pivot.with_columns(
-    #     pl.col("feature_names").replace(
-    #         name_map
-    #     )
-    # )
-
-    # t_pivot = t_pivot.with_columns(
-    #     pl.col("feature_names").replace(
-    #         {"const": "alpha_t", "mkt_rf": "mkt_t", "smb": "smb_t",
-    #          "hml": "hml_t", "rmw": "rmw_t", "cma": "cma_t"}
-    #     )
-    # )
-
-    # # Combine coefficients and t-values
-    # results_display = pl.concat([coef_pivot, t_pivot]).sort("feature_names")
-
-    return results
+    return final_df

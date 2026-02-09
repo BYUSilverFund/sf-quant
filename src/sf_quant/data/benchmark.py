@@ -95,7 +95,7 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
     >>> df.head()
     shape: (5, 2)
     ┌────────────┬──────────────┐
-    │ date       ┆ return       │
+    │ date       ┆ bmk_return   │
     │ ---        ┆ ---          │
     │ date       ┆ f64          │
     ╞════════════╪══════════════╡
@@ -110,6 +110,6 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
         benchmark_returns
         .filter(pl.col("date").is_between(start, end))
         .group_by("date")
-        .agg((pl.col("weight") * pl.col("return")).sum().alias("return"))
+        .agg((pl.col("weight") * pl.col("return")).sum().alias("bmk_return"))
         .collect()
     )
