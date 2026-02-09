@@ -37,6 +37,14 @@ class Table:
         return df_str
 
 
+class FamaFrenchTable(Table):
+    def _file_path(self, year: int | None = None) -> str:
+        if year is None:
+            return f"{self._base_path}/{self._name}*.parquet"
+        else:
+            return f"{self._base_path}/{self._name}{year}.parquet"
+
+
 assets_table = Table("assets", os.getenv("ASSETS_TABLE"))
 crsp_daily_table = Table("crsp_daily", os.getenv("CRSP_DAILY_TABLE"))
 crsp_v2_daily_table = Table("crsp_v2_daily", os.getenv("CRSP_V2_DAILY_TABLE"))
@@ -46,4 +54,4 @@ crsp_events_table = Table("crsp_events", os.getenv("CRSP_EVENTS_TABLE"))
 exposures_table = Table("exposures", os.getenv("EXPOSURES_TABLE"))
 covariances_table = Table("covariances", os.getenv("COVARIANCES_TABLE"))
 factors_table = Table("factors", os.getenv("FACTORS_TABLE"))
-ff_table = Table("ff", os.getenv("FF_TABLE"))
+ff_table = FamaFrenchTable("ff5_factors", os.getenv("FF_TABLE"))

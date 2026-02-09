@@ -1,3 +1,3 @@
-from . import backtester, data, optimizer, performance
+from . import backtester, data, optimizer, performance, research
 
-__all__ = ["backtester", "data", "optimizer", "performance"]
+__all__ = ["backtester", "data", "optimizer", "performance", "research"]
