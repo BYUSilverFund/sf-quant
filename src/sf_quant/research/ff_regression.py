@@ -1,8 +1,96 @@
 import polars as pl
+import statsmodels.formula.api as smf
+
 from sf_quant.data import load_fama_french
+from sf_quant.schema.returns_schema import PortfolioRetSchema
 
 
 def run_ff_regression(
+    portfolio_returns: PortfolioRetSchema,
+) -> pl.DataFrame:
+    """
+    Run a Fama-French 5-factor regression on a single portfolio's returns.
+
+    Regresses portfolio excess returns (return minus risk-free rate) against
+    the Fama-French 5 factors using OLS. Factors are shifted by -1 day so
+    that today's return is explained by yesterday's factor realizations.
+
+    Parameters
+    ----------
+    portfolio_returns : PortfolioRetSchema
+        Portfolio returns containing:
+
+        - ``date`` (date): The observation date.
+        - ``return`` (float): Daily portfolio return.
+
+    Returns
+    -------
+    pl.DataFrame
+        Regression summary with columns:
+
+        - ``variable`` (str): Factor name (Intercept, mkt_rf, smb, hml, rmw, cma).
+        - ``coefficient`` (float): OLS coefficient estimate.
+        - ``tstat`` (float): T-statistic for the coefficient.
+
+    Notes
+    -----
+    - Factors are loaded automatically from the date range in portfolio_returns.
+    - Returns and factors are scaled to daily percent (×100) before regression.
+    - Factor values are lagged by one day (shift(-1)) prior to joining.
+
+    Examples
+    --------
+    >>> import polars as pl
+    >>> import sf_quant.research as sfr
+    >>> import datetime as dt
+    >>> ports = pl.DataFrame({
+    ...     'date': [dt.date(2024, 1, i) for i in range(2, 101)],
+    ...     'return': [0.001] * 99,
+    ... })
+    >>> sfr.run_ff_regression(ports)
+    shape: (6, 3)
+    ┌───────────┬─────────────┬─────────┐
+    │ variable  ┆ coefficient ┆ tstat   │
+    │ ---       ┆ ---         ┆ ---     │
+    │ str       ┆ f64         ┆ f64     │
+    ╞═══════════╪═════════════╪═════════╡
+    │ Intercept ┆ 0.0521      ┆ 2.134   │
+    │ mkt_rf    ┆ 0.9876      ┆ 15.432  │
+    │ smb       ┆ 0.1234      ┆ 2.341   │
+    │ hml       ┆ -0.0987     ┆ -1.876  │
+    │ rmw       ┆ 0.0543      ┆ 1.023   │
+    │ cma       ┆ -0.0321     ┆ -0.612  │
+    └───────────┴─────────────┴─────────┘
+    """
+    start = portfolio_returns["date"].min()
+    end = portfolio_returns["date"].max()
+
+    ff5 = (
+        load_fama_french(start=start, end=end)
+        .sort("date")
+        .with_columns(pl.exclude("date").shift(-1))
+    )
+
+    regression_data = (
+        portfolio_returns.join(ff5, on="date", how="left")
+        .drop_nulls("return")
+        .with_columns(pl.col("return").sub(pl.col("rf")).alias("return_rf"))
+        .with_columns(pl.exclude("date").mul(100))
+    )
+
+    formula = "return_rf ~ mkt_rf + smb + hml + rmw + cma"
+    results = smf.ols(formula, regression_data.to_pandas()).fit()
+
+    return pl.DataFrame(
+        {
+            "variable": results.params.index.tolist(),
+            "coefficient": results.params.values.tolist(),
+            "tstat": results.tvalues.values.tolist(),
+        }
+    )
+
+
+def run_quantile_ff_regression(
     portfolio_returns: pl.DataFrame,
 ) -> pl.DataFrame:
     """
@@ -50,7 +138,7 @@ def run_ff_regression(
     ...     'p_10': [0.02] * 99,
     ...     'spread': [0.01] * 99
     ... })
-    >>> results = sfr.run_ff_regression(ports)
+    >>> results = sfr.run_quantile_ff_regression(ports)
     >>> results
     shape: (12, 4)
     ┌───────────────┬──────────┬──────────┬──────────┐

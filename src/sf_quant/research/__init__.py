@@ -9,7 +9,7 @@ from .quantile_portfolios import (
     vol_scale_ports,
     beta_scale_ports,
 )
-from .ff_regression import run_ff_regression
+from .ff_regression import run_ff_regression, run_quantile_ff_regression
 from .signal_analysis import get_signal_stats, get_signal_distribution
 
 __all__ = [
@@ -17,6 +17,7 @@ __all__ = [
     "vol_scale_ports",
     "beta_scale_ports",
     "run_ff_regression",
+    "run_quantile_ff_regression",
     "get_signal_stats",
     "get_signal_distribution",
 ]

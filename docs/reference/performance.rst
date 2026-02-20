@@ -26,3 +26,5 @@ Performance
    generate_drawdown_chart
    generate_alpha_ics
    generate_ic_chart
+   get_turnover_stats
+   plot_turnover

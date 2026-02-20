@@ -17,6 +17,7 @@ dependencies = [
     "dataframely>=1.14.0",
     "polars-ols>=0.3.5",
     "ipywidgets>=8.1.8",
+    "statsmodels>=0.14.0",
 ]
 
 

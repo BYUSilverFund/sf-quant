@@ -24,6 +24,10 @@ from .charts import (
 from .ics import (
     generate_alpha_ics,
 )
+from .turnover import (
+    get_turnover_stats,
+    plot_turnover,
+)
 
 __all__ = [
     # Returns
@@ -46,4 +50,7 @@ __all__ = [
     # Alpha
     "generate_alpha_ics",
     "generate_ic_chart",
+    # Turnover
+    "get_turnover_stats",
+    "plot_turnover",
 ]
