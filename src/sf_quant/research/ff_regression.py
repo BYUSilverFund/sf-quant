@@ -79,7 +79,7 @@ def run_ff_regression(
     )
 
     formula = "return_rf ~ mkt_rf + smb + hml + rmw + cma"
-    results = smf.ols(formula, regression_data.to_pandas()).fit()
+    results = smf.ols(formula, regression_data).fit()
 
     return pl.DataFrame(
         {
