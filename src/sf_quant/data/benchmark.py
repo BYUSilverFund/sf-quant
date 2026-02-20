@@ -1,8 +1,7 @@
 import datetime as dt
 import polars as pl
 
-from ._views import benchmark
-
+from ._views import benchmark, benchmark_returns
 
 def load_benchmark(start: dt.date, end: dt.date) -> pl.DataFrame:
     """
@@ -56,5 +55,61 @@ def load_benchmark(start: dt.date, end: dt.date) -> pl.DataFrame:
     return (
         benchmark.filter(pl.col("date").is_between(start, end))
         .sort(["barrid", "date"])
+        .collect()
+    )
+
+def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
+    """
+    Load aggregated benchmark returns between two dates.
+
+    This function computes daily benchmark returns by aggregating individual
+    constituent returns weighted by their benchmark weights. Returns are
+    grouped by date and aggregated into a single benchmark return value.
+
+    Parameters
+    ----------
+    start : datetime.date
+        Start date (inclusive).
+    end : datetime.date
+        End date (inclusive).
+
+    Returns
+    -------
+    pl.DataFrame
+        A Polars DataFrame containing aggregated benchmark returns with
+        the following columns:
+
+        - ``date`` : datetime, observation date.
+        - ``bmk_return`` : float, aggregated benchmark return for the date.
+
+    Examples
+    --------
+    >>> import sf_quant.data as sfd
+    >>> import datetime as dt
+    >>> start = dt.date(2024, 1, 1)
+    >>> end = dt.date(2024, 12, 31)
+    >>> df = sfd.load_benchmark_returns(
+    ...     start=start,
+    ...     end=end
+    ... )
+    >>> df.head()
+    shape: (5, 2)
+    ┌────────────┬──────────────┐
+    │ date       ┆ bmk_return   │
+    │ ---        ┆ ---          │
+    │ date       ┆ f64          │
+    ╞════════════╪══════════════╡
+    │ 2024-01-02 ┆ 0.004521     │
+    │ 2024-01-03 ┆ -0.001234    │
+    │ 2024-01-04 ┆ 0.002876     │
+    │ 2024-01-05 ┆ 0.001543     │
+    │ 2024-01-08 ┆ -0.000612    │
+    └────────────┴──────────────┘
+    """
+    return (
+        benchmark_returns
+        .filter(pl.col("date").is_between(start, end))
+        .group_by("date")
+        .agg((pl.col("weight") * pl.col("return")).sum().alias("bmk_return"))
         .collect()
     )

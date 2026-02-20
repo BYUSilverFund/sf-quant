@@ -27,6 +27,7 @@ Data
    get_exposures_columns
    construct_covariance_matrix
    load_benchmark
+   load_benchmark_returns
    load_factors
    get_factors_columns
    get_factor_names
