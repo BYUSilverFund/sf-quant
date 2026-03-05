@@ -43,7 +43,7 @@ def load_fama_french(start: dt.date, end: dt.date) -> pl.DataFrame:
     │ 2024-01-02 ┆ 0.0123 ┆ 0.0045 ┆ -0.002 ┆ 0.0010 ┆ 0.0008 ┆ 0.0001 │
     └────────────┴────────┴────────┴────────┴────────┴────────┴────────┘
     """
-    result = fama_french.filter(pl.col("date").is_between(start, end)).collect()
+    result = fama_french().filter(pl.col("date").is_between(start, end)).collect()
     return FamaFrenchSchema.validate(result)
 
 
@@ -74,7 +74,7 @@ def get_fama_french_columns() -> str:
     └────────┴─────────┘
     """
     pl.Config.set_tbl_rows(-1)
-    schema = fama_french.collect_schema()
+    schema = fama_french().collect_schema()
     df_str = str(
         pl.DataFrame(
             {

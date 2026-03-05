@@ -50,7 +50,7 @@ def load_crsp_monthly(start: dt.date, end: dt.date, columns: list[str]) -> pl.Da
     └────────────┴────────┴───────┘
     """
     return (
-        crsp_monthly_clean.filter(pl.col("date").is_between(start, end))
+        crsp_monthly_clean().filter(pl.col("date").is_between(start, end))
         .sort(["permno", "date"])
         .select(columns)
         .collect()

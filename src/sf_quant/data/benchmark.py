@@ -53,7 +53,7 @@ def load_benchmark(start: dt.date, end: dt.date) -> pl.DataFrame:
     └────────────┴─────────┴──────────┘
     """
     return (
-        benchmark.filter(pl.col("date").is_between(start, end))
+        benchmark().filter(pl.col("date").is_between(start, end))
         .sort(["barrid", "date"])
         .collect()
     )
@@ -107,7 +107,7 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
     └────────────┴──────────────┘
     """
     return (
-        benchmark_returns
+        benchmark_returns()
         .filter(pl.col("date").is_between(start, end))
         .group_by("date")
         .agg((pl.col("weight") * pl.col("return")).sum().alias("bmk_return"))

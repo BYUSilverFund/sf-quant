@@ -50,7 +50,7 @@ def load_crsp_daily(start: dt.date, end: dt.date, columns: list[str]) -> pl.Data
     └────────────┴────────┴───────┘
     """
     return (
-        crsp_daily_clean.filter(pl.col("date").is_between(start, end))
+        crsp_daily_clean().filter(pl.col("date").is_between(start, end))
         .sort(["permno", "date"])
         .select(columns)
         .collect()
