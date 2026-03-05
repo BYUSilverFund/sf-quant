@@ -2,8 +2,13 @@ import polars as pl
 import polars.selectors as cs
 import matplotlib.pyplot as plt
 
+from sf_quant.performance.leverage import generate_leverage_from_weights
+
 
 def _compute_turnover(weights: pl.DataFrame) -> pl.DataFrame:
+    # Generate leverage from weights
+    leverage = generate_leverage_from_weights(weights)
+
     return (
         weights.sort("date", "barrid")
         .with_columns(
@@ -15,7 +20,12 @@ def _compute_turnover(weights: pl.DataFrame) -> pl.DataFrame:
         .group_by("date")
         .agg(pl.col("diff").abs().sum().alias("two_sided_turnover"))
         .sort("date")
+        .join(leverage, on="date")
+        .with_columns(
+            (pl.col("two_sided_turnover") / pl.col("leverage")).alias("two_sided_turnover")
+        )
         .with_columns(pl.col("two_sided_turnover").rolling_mean(252))
+        .drop("leverage")
     )
 
 
