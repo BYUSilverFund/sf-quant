@@ -9,6 +9,38 @@ To install run
 pip install sf-quant
 ```
 
+## Environment Configuration
+
+`sf-quant` requires two environment variables to locate data: `ROOT` and `DATABASE`.
+
+### Option 1: `.env` file or environment variables
+
+Create a `.env` file in your project root (automatically loaded via `python-dotenv`):
+
+```
+ROOT=/path/to/root
+DATABASE=your_database
+```
+
+Or export them in your shell:
+
+```bash
+export ROOT=/path/to/root
+export DATABASE=your_database
+```
+
+### Option 2: Programmatic configuration
+
+Set values at runtime using `sfd.env()`:
+
+```python
+import sf_quant.data as sfd
+
+sfd.env(root="/path/to/root", database="your_database")
+```
+
+This will override any values set via environment variables.
+
 ## Documentation Development
 
 To run a local server of the sphinx documentation run

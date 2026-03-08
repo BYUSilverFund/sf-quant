@@ -1,14 +1,15 @@
-import os
-import dotenv
 import polars as pl
 
-dotenv.load_dotenv(override=True)
+from ._config import get_base_path
 
 
 class Table:
-    def __init__(self, name: str, base_path: str) -> None:
+    def __init__(self, name: str) -> None:
         self._name = name
-        self._base_path = base_path
+
+    @property
+    def _base_path(self) -> str:
+        return get_base_path(self._name)
 
     def _file_path(self, year: int | None = None) -> str:
         if year is None:
@@ -45,13 +46,13 @@ class FamaFrenchTable(Table):
             return f"{self._base_path}/{self._name}{year}.parquet"
 
 
-assets_table = Table("assets", os.getenv("ASSETS_TABLE"))
-crsp_daily_table = Table("crsp_daily", os.getenv("CRSP_DAILY_TABLE"))
-crsp_v2_daily_table = Table("crsp_v2_daily", os.getenv("CRSP_V2_DAILY_TABLE"))
-crsp_monthly_table = Table("crsp_monthly", os.getenv("CRSP_MONTHLY_TABLE"))
-crsp_v2_monthly_table = Table("crsp_v2_monthly", os.getenv("CRSP_V2_MONTHLY_TABLE"))
-crsp_events_table = Table("crsp_events", os.getenv("CRSP_EVENTS_TABLE"))
-exposures_table = Table("exposures", os.getenv("EXPOSURES_TABLE"))
-covariances_table = Table("covariances", os.getenv("COVARIANCES_TABLE"))
-factors_table = Table("factors", os.getenv("FACTORS_TABLE"))
-ff_table = FamaFrenchTable("ff5_factors", os.getenv("FF_TABLE"))
+assets_table = Table("assets")
+crsp_daily_table = Table("crsp_daily")
+crsp_v2_daily_table = Table("crsp_v2_daily")
+crsp_monthly_table = Table("crsp_monthly")
+crsp_v2_monthly_table = Table("crsp_v2_monthly")
+crsp_events_table = Table("crsp_events")
+exposures_table = Table("exposures")
+covariances_table = Table("covariances")
+factors_table = Table("factors")
+ff_table = FamaFrenchTable("ff5_factors")
