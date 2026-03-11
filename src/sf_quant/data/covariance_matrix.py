@@ -7,6 +7,35 @@ from .assets import load_assets_by_date
 from ._factors import factors
 
 
+def construct_factor_model_components(
+    date_: dt.date, barrids: list[str]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Construct the factor model components for the given assets.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        - factor_exposures: shape (N, K)
+        - factor_covariance: shape (K, K), in decimal space
+        - specific_risk: shape (N,), variance in decimal space
+    """
+    exposures = _construct_factor_exposure_matrix(date_, barrids).drop("barrid").to_numpy()
+    
+    factor_cov = _construct_factor_covariance_matrix(date_).drop("factor_1").to_numpy()
+    factor_cov = factor_cov / 100**2
+
+    barrids_df = pl.DataFrame({"barrid": barrids})
+    sr_df = load_assets_by_date(
+        date_, in_universe=False, columns=["date", "barrid", "specific_risk"]
+    )
+    sr_df = barrids_df.join(sr_df, on=["barrid"], how="left").fill_null(0)
+    
+    specific_risk = np.power(sr_df["specific_risk"].to_numpy(), 2) / 100**2
+
+    return exposures, factor_cov, specific_risk
+
+
 def construct_covariance_matrix(date_: dt.date, barrids: list[str]) -> pl.DataFrame:
     """
     Construct the asset covariance matrix from a factor model.
