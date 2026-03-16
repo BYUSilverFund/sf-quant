@@ -70,6 +70,34 @@ def mve_optimizer(
     -------
     pl.DataFrame
         Polars DataFrame with 'barrid' and 'weight'.
+        
+    Examples
+    --------
+    >>> import sf_quant.optimizer as sfo
+    >>> import numpy as np
+    >>> ids = ['AAPL', 'IBM']
+    >>> alphas = np.array([1.1, 1.2])
+    >>> covariance_matrix = np.array([
+    ...     [.5, .1],
+    ...     [.1, .2]
+    ... ])
+    >>> constraints = [sfo.FullInvestment()]
+    >>> weights = sfo.mve_optimizer(
+    ...     ids=ids,
+    ...     alphas=alphas,
+    ...     covariance_matrix=covariance_matrix,
+    ...     constraints=constraints
+    ... )
+    >>> weights
+    shape: (2, 2)
+    ┌────────┬────────┐
+    │ barrid ┆ weight │
+    │ ---    ┆ ---    │
+    │ str    ┆ f64    │
+    ╞════════╪════════╡
+    │ AAPL   ┆ 0.1    │
+    │ IBM    ┆ 0.9    │
+    └────────┴────────┘
     """
     constraints = _construct_constraints(constraints, betas=betas)
 
