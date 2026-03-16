@@ -103,7 +103,7 @@ def load_alphas_by_date(
     >>> import datetime as dt
     >>> date_ = dt.date(2024, 1, 3)
     >>> columns = ["barrid", "date", "signal_name", "alpha_value"]
-    >>> df = sf.data.load_scores_by_date(
+    >>> df = sf.data.load_alphas_by_date(
     ...     date_=date_,
     ...     columns=columns,
     ...     signal_names=["momentum", "reversal"]
@@ -117,9 +117,9 @@ def load_alphas_by_date(
     ╞════════════╪═════════╪═════════════╪═════════════╡
     │ 2023-01-03 ┆ USA06Z1 ┆ momentum    ┆ -17.611814  │
     │ 2023-01-03 ┆ USA06Z1 ┆ reversal    ┆ 1.55668     │
-    │ 2023-01-04 ┆ USA06Z1 ┆ momentum    ┆ -18.676612  │
-    │ 2023-01-04 ┆ USA06Z1 ┆ reversal    ┆ 3.775271    │
-    │ 2023-01-05 ┆ USA06Z1 ┆ momentum    ┆ -17.06099   │
+    │ 2023-01-03 ┆ USA06Z1 ┆ momentum    ┆ -18.676612  │
+    │ 2023-01-03 ┆ USA06Z1 ┆ reversal    ┆ 3.775271    │
+    │ 2023-01-03 ┆ USA06Z1 ┆ momentum    ┆ -17.06099   │
     └────────────┴─────────┴─────────────┴─────────────┘
     """
     if signal_names is not None:
@@ -177,8 +177,18 @@ def load_combined_alphas(
     ...     columns=columns
     ... )
     >>> df.head()
-    shape: (5, 4)
-    
+    shape: (5, 3)
+    ┌─────────┬────────────┬──────────────────────┐
+    │ barrid  ┆ date       ┆ combined_alpha_value │
+    │ ---     ┆ ---        ┆ ---                  │
+    │ str     ┆ date       ┆ f64                  │
+    ╞═════════╪════════════╪══════════════════════╡
+    │ USA06Z1 ┆ 2024-01-03 ┆ -0.187421            │
+    │ USA0A21 ┆ 2024-01-03 ┆ 0.052188             │
+    │ USA1BC1 ┆ 2024-01-03 ┆ 0.391552             │
+    │ USA2DF1 ┆ 2024-01-03 ┆ -0.024119            │
+    │ USA3GH1 ┆ 2024-01-03 ┆ 0.145993             │
+    └─────────┴────────────┴──────────────────────┘
     """
     return (
         combined_alphas_table.scan()
@@ -219,8 +229,18 @@ def load_combined_alphas_by_date(
     ...     columns=columns
     ... )
     >>> df.head()
-    shape: (5, 4)
-    
+    shape: (5, 3)
+    ┌─────────┬────────────┬──────────────────────┐
+    │ barrid  ┆ date       ┆ combined_alpha_value │
+    │ ---     ┆ ---        ┆ ---                  │
+    │ str     ┆ date       ┆ f64                  │
+    ╞═════════╪════════════╪══════════════════════╡
+    │ USA06Z1 ┆ 2024-01-03 ┆ -0.187421            │
+    │ USA0A21 ┆ 2024-01-03 ┆ 0.052188             │
+    │ USA1BC1 ┆ 2024-01-03 ┆ 0.391552             │
+    │ USA2DF1 ┆ 2024-01-03 ┆ -0.024119            │
+    │ USA3GH1 ┆ 2024-01-03 ┆ 0.145993             │
+    └─────────┴────────────┴──────────────────────┘
     """
     return (
         combined_alphas_table.scan(date_.year)

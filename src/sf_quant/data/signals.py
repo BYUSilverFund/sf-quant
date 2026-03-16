@@ -77,7 +77,7 @@ def load_signals(
 
 
 def load_signals_by_date(
-    date_: dt.date, columns: list[str], signal_names: list[str] = None
+    date_: dt.date, columns: list[str], signal_names: list[str] | None = None
 ) -> pl.DataFrame:
     """
     Load a Polars DataFrame of signal data for a single date.
