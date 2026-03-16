@@ -1,6 +1,6 @@
 import polars as pl
 import tqdm
-from sf_quant.data.covariance_matrix import construct_covariance_matrix
+from sf_quant.data.covariance_matrix import construct_factor_model_components
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 from sf_quant.schema.portfolio_schema import PortfolioSchema
@@ -49,8 +49,8 @@ def backtest_sequential(
     Notes
     -----
     - The optimization is solved using :func:`~sf_quant.optimizer.optimizers.mve_optimizer`.
-    - The covariance matrix is constructed using
-      :func:`~sf_quant.data.covariance_matrix.construct_covariance_matrix`.
+    - The factor model components are constructed using
+      :func:`~sf_quant.data.covariance_matrix.construct_factor_model_components`.
 
     Examples
     --------
@@ -112,14 +112,18 @@ def backtest_sequential(
             else None
         )
 
-        covariance_matrix = (
-            construct_covariance_matrix(date_, barrids).drop("barrid").to_numpy()
-        )
+        (
+            factor_exposures,
+            factor_covariance,
+            specific_risk,
+        ) = construct_factor_model_components(date_, barrids)
 
         portfolio = mve_optimizer(
             ids=barrids,
             alphas=alphas,
-            covariance_matrix=covariance_matrix,
+            factor_exposures=factor_exposures,
+            factor_covariance=factor_covariance,
+            specific_risk=specific_risk,
             gamma=gamma,
             constraints=constraints,
             betas=betas,
