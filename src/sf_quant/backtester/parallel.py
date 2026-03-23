@@ -3,7 +3,7 @@ import os
 import ray
 import datetime as dt
 from ray.experimental import tqdm_ray
-from sf_quant.data.covariance_matrix import construct_covariance_matrix
+from sf_quant.data.covariance_matrix import construct_factor_model_components
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 from sf_quant.schema.portfolio_schema import PortfolioSchema
@@ -27,14 +27,18 @@ def _construct_portfolio(
         else None
     )
 
-    covariance_matrix = (
-        construct_covariance_matrix(date_, barrids).drop("barrid").to_numpy()
-    )
+    (
+        factor_exposures,
+        factor_covariance,
+        specific_risk,
+    ) = construct_factor_model_components(date_, barrids)
 
     portfolio = mve_optimizer(
         ids=barrids,
         alphas=alphas,
-        covariance_matrix=covariance_matrix,
+        factor_exposures=factor_exposures,
+        factor_covariance=factor_covariance,
+        specific_risk=specific_risk,
         gamma=gamma,
         constraints=constraints,
         betas=betas,

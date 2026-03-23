@@ -13,7 +13,7 @@ from .crsp_monthly import load_crsp_monthly, get_crsp_monthly_columns
 from .crsp_v2_monthly import load_crsp_v2_monthly, get_crsp_v2_monthly_columns
 from .exposures import load_exposures, load_exposures_by_date, get_exposures_columns
 from .covariances import load_covariances_by_date, get_covariances_columns
-from .covariance_matrix import construct_covariance_matrix
+from .covariance_matrix import construct_covariance_matrix, construct_factor_model_components
 from .benchmark import load_benchmark, load_benchmark_returns
 from .factors import load_factors, get_factors_columns, get_factor_names
 from .fama_french import load_fama_french, get_fama_french_columns
@@ -41,6 +41,7 @@ __all__ = [
     "load_covariances_by_date",
     "get_covariances_columns",
     "construct_covariance_matrix",
+    "construct_factor_model_components",
     "load_benchmark",
     "load_benchmark_returns",
     "load_factors",
