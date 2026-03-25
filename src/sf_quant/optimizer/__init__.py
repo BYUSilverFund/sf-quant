@@ -5,11 +5,12 @@ portfolios, computing weights, and evaluating constraints, while keeping
 internal mathematical and solver details hidden.
 """
 
-from .optimizers import mve_optimizer
+from .optimizers import mve_optimizer, dynamic_mve_optimizer
 from .constraints import LongOnly, FullInvestment, ZeroInvestment, NoBuyingOnMargin, UnitBeta, ZeroBeta
 
 __all__ = [
     "mve_optimizer",
+    "dynamic_mve_optimizer"
     "LongOnly",
     "FullInvestment",
     "ZeroInvestment",

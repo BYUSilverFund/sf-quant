@@ -51,6 +51,12 @@ def backtest_sequential(
     - The optimization is solved using :func:`~sf_quant.optimizer.optimizers.mve_optimizer`.
     - The factor model components are constructed using
       :func:`~sf_quant.data.covariance_matrix.construct_factor_model_components`.
+    - Results are validated against :class:`~sf_quant.schema.portfolio_schema.PortfolioSchema`.
+
+    See Also
+    --------
+    backtest_parallel : Parallelized version using Ray for faster execution.
+    dynamic_backtest_parallel : Parallel version with active risk calibration.
 
     Examples
     --------

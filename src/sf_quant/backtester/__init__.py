@@ -7,5 +7,6 @@ internal execution details hidden.
 
 from .sequential import backtest_sequential
 from .parallel import backtest_parallel
+from .dynamic_parallel import dynamic_backtest_parallel
 
-__all__ = ["backtest_sequential", "backtest_parallel"]
+__all__ = ["backtest_sequential", "backtest_parallel", "dynamic_backtest_parallel"]

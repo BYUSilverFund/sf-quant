@@ -14,3 +14,4 @@ Backtester
 
    backtest_sequential
    backtest_parallel
+   dynamic_backtest_parallel

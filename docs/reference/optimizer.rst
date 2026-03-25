@@ -13,6 +13,7 @@ Optimizer
    :nosignatures:
 
    mve_optimizer
+   dynamic_mve_optimizer
    FullInvestment
    ZeroInvestment
    LongOnly

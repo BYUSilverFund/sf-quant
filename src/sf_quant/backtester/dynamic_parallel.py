@@ -3,8 +3,9 @@ import os
 import ray
 import datetime as dt
 from ray.experimental import tqdm_ray
+from sf_quant.data.benchmark import load_benchmark
 from sf_quant.data.covariance_matrix import construct_factor_model_components
-from sf_quant.optimizer.optimizers import mve_optimizer
+from sf_quant.optimizer.optimizers import dynamic_mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 from sf_quant.schema.portfolio_schema import PortfolioSchema
 
@@ -15,6 +16,8 @@ def _construct_portfolio(
     data: pl.DataFrame,
     constraints: list[Constraint],
     gamma: float,
+    target_active_risk: float | None = None,
+    benchmark_df: pl.DataFrame | None = None,
     progress_bar: tqdm_ray.tqdm | None = None,
 ):
     """
@@ -34,6 +37,10 @@ def _construct_portfolio(
         Portfolio constraints to enforce.
     gamma : float
         Risk aversion parameter.
+    target_active_risk : float, optional
+        Target active risk for gamma calibration.
+    benchmark_df : pl.DataFrame, optional
+        Benchmark weights data with columns 'date', 'barrid', 'benchmark_weight'.
     progress_bar : tqdm_ray.tqdm, optional
         Ray-based progress bar for tracking completion.
 
@@ -52,25 +59,39 @@ def _construct_portfolio(
         else None
     )
 
+    benchmark_weights = None
+    if benchmark_df is not None:
+        # Get benchmark weights for portfolio barrids on this date
+        bmk_subset = benchmark_df.filter(pl.col("date").eq(date_))
+        # Join with portfolio to ensure alignment
+        aligned = (
+            pl.DataFrame({"barrid": barrids})
+            .join(bmk_subset[["barrid", "benchmark_weight"]], on="barrid", how="left")
+            .fill_null(0.0)
+        )
+        benchmark_weights = aligned["benchmark_weight"].to_numpy()
+
     (
         factor_exposures,
         factor_covariance,
         specific_risk,
     ) = construct_factor_model_components(date_, barrids)
 
-    portfolio = mve_optimizer(
+    portfolio = dynamic_mve_optimizer(
         ids=barrids,
         alphas=alphas,
         factor_exposures=factor_exposures,
         factor_covariance=factor_covariance,
         specific_risk=specific_risk,
-        gamma=gamma,
         constraints=constraints,
+        initial_gamma=gamma,
         betas=betas,
+        target_active_risk=target_active_risk,
+        benchmark_weights=benchmark_weights,
     )
 
     portfolio = portfolio.with_columns(pl.lit(date_).alias("date")).select(
-        "date", "barrid", "weight"
+        "date", "barrid", "weight", 'gamma', 'active_risk'
     )
 
     if progress_bar is not None:
@@ -79,19 +100,19 @@ def _construct_portfolio(
     return portfolio
 
 
-def backtest_parallel(
+def dynamic_backtest_parallel(
     data: pl.DataFrame,
     constraints: list[Constraint],
-    gamma: float = 2,
+    initial_gamma: float = 100,
+    target_active_risk: float = 0.05,
     n_cpus: int | None = None,
 ) -> pl.DataFrame:
     """
     Run a parallelized backtest of portfolio optimization using Ray.
 
-    This function distributes portfolio construction tasks across
-    multiple CPUs with Ray, solving mean–variance optimization problems
-    for each date in parallel. A Ray-based progress bar tracks
-    computation progress.
+    This function distributes portfolio construction tasks across multiple CPUs
+    using Ray, solving mean–variance optimization problems for each date in parallel.
+    A Ray-based progress bar tracks computation progress.
 
     Parameters
     ----------
@@ -105,9 +126,14 @@ def backtest_parallel(
 
     constraints : list[Constraint]
         List of portfolio constraints to enforce during optimization.
-    gamma : float, optional
-        Risk aversion parameter. Higher values penalize portfolio
-        variance more strongly. Default is 2.
+    initial_gamma : float, optional
+        Risk aversion parameter. Higher values penalize portfolio variance
+        more strongly. Used as the starting gamma for calibration if
+        ``target_active_risk`` is specified. Default is 100.
+    target_active_risk : float, optional
+        If specified, automatically calibrate gamma for each date to achieve this
+        target annualized active risk (e.g., 0.05 for 5%). Requires benchmark data
+        to be available via :func:`~sf_quant.data.benchmark.load_benchmark`.
     n_cpus : int, optional
         Number of CPUs to allocate to Ray. If ``None``, defaults to
         ``os.cpu_count()`` but is capped at the number of unique dates.
@@ -121,18 +147,20 @@ def backtest_parallel(
         - ``date`` : datetime, portfolio date.
         - ``barrid`` : str, asset identifier.
         - ``weight`` : float, optimized portfolio weight.
+        - ``gamma`` : float, calibrated risk aversion parameter for each date.
+        - ``active_risk`` : float, achieved annualized active risk for each date.
 
     Notes
     -----
+    - Benchmark data is automatically loaded when ``target_active_risk`` is specified,
+      via :func:`~sf_quant.data.benchmark.load_benchmark`.
     - Ray is initialized with ``ignore_reinit_error=True``, allowing safe
       re-invocation within the same process.
-    - The number of CPUs is automatically limited to the number of unique dates
-      to avoid unnecessary idle workers.
 
     See Also
     --------
-    backtest_sequential : Sequential version for smaller datasets or debugging.
-    dynamic_backtest_parallel : Parallel version with active risk calibration.
+    backtest_parallel : Sequential version without active risk calibration.
+    dynamic_mve_optimizer : Underlying optimizer with active risk calibration.
 
     Examples
     --------
@@ -143,10 +171,7 @@ def backtest_parallel(
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 1, 10)
-    >>> columns = [
-    ...     'date',
-    ...     'barrid',
-    ... ]
+    >>> columns = ['date', 'barrid']
     >>> data = (
     ...     sfd.load_assets(
     ...         start=start,
@@ -158,34 +183,38 @@ def backtest_parallel(
     ...         pl.lit(0).alias('alpha')
     ...     )
     ... )
-    >>> constraints = [
-    ...     sfo.FullInvestment()
-    ... ]
-    >>> weights = sfb.backtest_parallel(
+    >>> constraints = [sfo.FullInvestment()]
+    >>> weights = sfb.dynamic_backtest_parallel(
     ...     data=data,
     ...     constraints=constraints,
-    ...     gamma=2,
+    ...     initial_gamma=100,
     ... )
-    shape: (5, 3)
-    ┌────────────┬─────────┬───────────┐
-    │ date       ┆ barrid  ┆ weight    │
-    │ ---        ┆ ---     ┆ ---       │
-    │ date       ┆ str     ┆ f64       │
-    ╞════════════╪═════════╪═══════════╡
-    │ 2024-01-02 ┆ USA06Z1 ┆ -0.000639 │
-    │ 2024-01-02 ┆ USA0771 ┆ -0.000083 │
-    │ 2024-01-02 ┆ USA0C11 ┆ -0.003044 │
-    │ 2024-01-02 ┆ USA0SY1 ┆ -0.002177 │
-    │ 2024-01-02 ┆ USA11I1 ┆ 0.001475  │
-    └────────────┴─────────┴───────────┘
+    shape: (5, 5)
+    ┌────────────┬─────────┬───────────┬───────┬──────────────┐
+    │ date       ┆ barrid  ┆ weight    ┆ gamma ┆ active_risk  │
+    │ ---        ┆ ---     ┆ ---       ┆ ---   ┆ ---          │
+    │ date       ┆ str     ┆ f64       ┆ f64   ┆ f64          │
+    ╞════════════╪═════════╪═══════════╪═══════╪══════════════╡
+    │ 2024-01-02 ┆ USA06Z1 ┆ -0.000639 ┆ 100.0 ┆ 0.047        │
+    │ 2024-01-02 ┆ USA0771 ┆ -0.000083 ┆ 100.0 ┆ 0.047        │
+    │ 2024-01-02 ┆ USA0C11 ┆ -0.003044 ┆ 100.0 ┆ 0.047        │
+    │ 2024-01-02 ┆ USA0SY1 ┆ -0.002177 ┆ 100.0 ┆ 0.047        │
+    │ 2024-01-02 ┆ USA11I1 ┆ 0.001475  ┆ 100.0 ┆ 0.047        │
+    └────────────┴─────────┴───────────┴───────┴──────────────┘
     """
     # Get dates
     dates = data["date"].unique().sort().to_list()
 
+    start_date = dates[0]
+    end_date = dates[-1]
+    benchmark_df = load_benchmark(start_date, end_date).rename({"weight": "benchmark_weight"})
+
     # Set up ray
     n_cpus = n_cpus or os.cpu_count()
     n_cpus = min(len(dates), n_cpus)
-    ray.init(ignore_reinit_error=True, num_cpus=n_cpus)
+    # Empty runtime_env = no environment management. Workers use parent's Python directly.
+    # This prevents Ray from trying to serialize code or rebuild packages on air-gapped clusters.
+    ray.init(ignore_reinit_error=True, num_cpus=n_cpus, runtime_env={})
 
     # Set up ray progress bar
     remote_tqdm = ray.remote(tqdm_ray.tqdm)
@@ -199,7 +228,9 @@ def backtest_parallel(
             date_=date_,
             data=data,
             constraints=constraints,
-            gamma=gamma,
+            gamma=initial_gamma,
+            target_active_risk=target_active_risk,
+            benchmark_df=benchmark_df,
             progress_bar=progress_bar,
         )
         for date_ in dates
@@ -210,4 +241,4 @@ def backtest_parallel(
     progress_bar.close.remote()
     ray.shutdown()
 
-    return PortfolioSchema.validate(pl.concat(portfolio_list))
+    return pl.concat(portfolio_list)
