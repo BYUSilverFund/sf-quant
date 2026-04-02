@@ -174,23 +174,30 @@ def dynamic_backtest_parallel(
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 1, 10)
-    >>> columns = ['date', 'barrid']
+    >>> benchmark_weights = sfd.load_benchmark(start, end).rename({'weight': 'benchmark_weight'})
     >>> data = (
     ...     sfd.load_assets(
     ...         start=start,
     ...         end=end,
     ...         in_universe=True,
-    ...         columns=columns
+    ...         columns=['date', 'barrid']
     ...     )
     ...     .with_columns(
     ...         pl.lit(0).alias('alpha')
     ...     )
+    ...     .join(
+    ...         other=benchmark_weights,
+    ...         on=['date', 'barrid'],
+    ...         how='left'
+    ...     )
     ... )
-    >>> constraints = [sfo.FullInvestment()]
+    >>> constraints = [sfo.FullInvestment(), sfo.LongOnly()]
     >>> weights = sfb.dynamic_backtest_parallel(
     ...     data=data,
     ...     constraints=constraints,
     ...     initial_gamma=100,
+    ...     target_active_risk=0.05,
+    ...     active_weights=False
     ... )
     shape: (5, 5)
     ┌────────────┬─────────┬───────────┬───────┬──────────────┐
