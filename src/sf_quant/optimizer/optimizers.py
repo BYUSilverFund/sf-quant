@@ -108,6 +108,7 @@ def dynamic_mve_optimizer(
     betas: np.ndarray | None = None,
     target_active_risk: float | None = None,
     benchmark_weights: np.ndarray | None = None,
+    active_weights: bool = False
 ) -> pl.DataFrame:
     """
     Mean-variance optimizer with optional active risk calibration.
@@ -143,6 +144,9 @@ def dynamic_mve_optimizer(
     benchmark_weights : np.ndarray, optional
         Benchmark portfolio weights of shape (n_assets,), required if
         ``target_active_risk`` is specified.
+    active_weights : bool
+        Flag indicating how to treat output weights of optimizer. False (default)
+        means that we subtract of benchmark weights before computing active risk.
 
     Returns
     -------
@@ -204,6 +208,7 @@ def dynamic_mve_optimizer(
         constraints=constructed_constraints,
         target_active_risk=target_active_risk,
         initial_gamma=initial_gamma,
+        active_weights=active_weights
     )
 
     optimal_weights = _quadratic_program(
@@ -281,34 +286,6 @@ def _quadratic_program(
 
     return weights.value
 
-def _active_quadratic_program(
-    alphas: np.ndarray,
-    factor_exposures: np.ndarray,
-    factor_covariance: np.ndarray,
-    specific_risk: np.ndarray,
-    gamma: float,
-    constraints: list[cp.Constraint],
-    benchmark_weights: np.ndarray,
-) -> np.ndarray:
-    n_assets = len(alphas)
-    weights = cp.Variable(n_assets)
-    constraints = [constraint(weights) for constraint in constraints]
-
-    portfolio_return = weights.T @ alphas
-
-    active_w = weights - benchmark_weights
-    factor_loadings = factor_exposures.T @ active_w
-    factor_variance = cp.quad_form(factor_loadings, factor_covariance)
-    specific_variance = cp.sum(cp.multiply(specific_risk, cp.square(active_w)))
-    active_variance = factor_variance + specific_variance
-
-    objective = cp.Maximize(portfolio_return - 0.5 * gamma * active_variance)
-
-    problem = cp.Problem(objective, constraints)
-    problem.solve(solver="OSQP")
-
-    return weights.value
-
 def _calibrate_gamma(
     alphas: np.ndarray,
     factor_exposures: np.ndarray,
@@ -320,6 +297,7 @@ def _calibrate_gamma(
     initial_gamma: float = 100.0,
     error: float = 0.005,
     max_iterations: int = 5,
+    active_weights: bool = False
 ):
     """
     Calibrate gamma to hit a target annualized active risk.
@@ -350,13 +328,15 @@ def _calibrate_gamma(
         Convergence tolerance. Default 0.005 (0.5%).
     max_iterations : int
         Maximum number of iterations. Default 5.
+    active_weights : bool
+        Flag indicating how to treat output weights of optimizer. False (default)
+        means that we subtract of benchmark weights before computing active risk.
 
     Returns
     -------
     float
         Calibrated gamma.
     """
-    n_assets = len(alphas)
     gamma = initial_gamma
     active_risk = float('inf')
     iterations = 1
@@ -364,10 +344,15 @@ def _calibrate_gamma(
 
     while abs(active_risk - target_active_risk) > error and iterations <= max_iterations:
         # Solve the optimization
-        weights = _active_quadratic_program(alphas, factor_exposures, factor_covariance, specific_risk, gamma, constraints, benchmark_weights)
+        weights = _quadratic_program(alphas, factor_exposures, factor_covariance, specific_risk, gamma, constraints)
   
+        # Compute active weights if active_weights flag is False
+        if not active_weights:
+            active_w = weights - benchmark_weights
+        else:
+            active_w = weights
+
         # Compute active risk using factor model
-        active_w = weights - benchmark_weights
         active_factor_loadings = factor_exposures.T @ active_w
         active_factor_var = active_factor_loadings @ factor_covariance @ active_factor_loadings
         active_specific_var = np.sum(specific_risk * np.square(active_w))

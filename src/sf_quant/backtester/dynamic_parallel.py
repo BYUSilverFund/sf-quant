@@ -17,8 +17,8 @@ def _construct_portfolio(
     constraints: list[Constraint],
     gamma: float,
     target_active_risk: float | None = None,
-    benchmark_df: pl.DataFrame | None = None,
     progress_bar: tqdm_ray.tqdm | None = None,
+    active_weights: bool = False
 ):
     """
     Construct a single optimized portfolio for a given date.
@@ -39,10 +39,11 @@ def _construct_portfolio(
         Risk aversion parameter.
     target_active_risk : float, optional
         Target active risk for gamma calibration.
-    benchmark_df : pl.DataFrame, optional
-        Benchmark weights data with columns 'date', 'barrid', 'benchmark_weight'.
     progress_bar : tqdm_ray.tqdm, optional
         Ray-based progress bar for tracking completion.
+    active_weights : bool
+        Flag indicating how to treat output weights of optimizer. False (default)
+        means that we subtract of benchmark weights before computing active risk.
 
     Returns
     -------
@@ -59,17 +60,14 @@ def _construct_portfolio(
         else None
     )
 
-    benchmark_weights = None
-    if benchmark_df is not None:
-        # Get benchmark weights for portfolio barrids on this date
-        bmk_subset = benchmark_df.filter(pl.col("date").eq(date_))
-        # Join with portfolio to ensure alignment
-        aligned = (
-            pl.DataFrame({"barrid": barrids})
-            .join(bmk_subset[["barrid", "benchmark_weight"]], on="barrid", how="left")
-            .fill_null(0.0)
-        )
-        benchmark_weights = aligned["benchmark_weight"].to_numpy()
+    benchmark_weights = (
+        subset["benchmark_weight"].to_numpy()
+        if "benchmark_weight" in subset.columns
+        else None
+    )
+
+    if benchmark_weights is None and active_weights is False:
+        raise ValueError("Benchmark weights must be provided if active_weights flag is False (default).")
 
     (
         factor_exposures,
@@ -88,6 +86,7 @@ def _construct_portfolio(
         betas=betas,
         target_active_risk=target_active_risk,
         benchmark_weights=benchmark_weights,
+        active_weights=active_weights
     )
 
     portfolio = portfolio.with_columns(pl.lit(date_).alias("date")).select(
@@ -106,6 +105,7 @@ def dynamic_backtest_parallel(
     initial_gamma: float = 100,
     target_active_risk: float = 0.05,
     n_cpus: int | None = None,
+    active_weights: bool = False
 ) -> pl.DataFrame:
     """
     Run a parallelized backtest of portfolio optimization using Ray.
@@ -137,6 +137,9 @@ def dynamic_backtest_parallel(
     n_cpus : int, optional
         Number of CPUs to allocate to Ray. If ``None``, defaults to
         ``os.cpu_count()`` but is capped at the number of unique dates.
+    active_weights : bool
+        Flag indicating how to treat output weights of optimizer. False (default)
+        means that we subtract of benchmark weights before computing active risk.
 
     Returns
     -------
@@ -205,10 +208,6 @@ def dynamic_backtest_parallel(
     # Get dates
     dates = data["date"].unique().sort().to_list()
 
-    start_date = dates[0]
-    end_date = dates[-1]
-    benchmark_df = load_benchmark(start_date, end_date).rename({"weight": "benchmark_weight"})
-
     # Set up ray
     n_cpus = n_cpus or os.cpu_count()
     n_cpus = min(len(dates), n_cpus)
@@ -230,8 +229,8 @@ def dynamic_backtest_parallel(
             constraints=constraints,
             gamma=initial_gamma,
             target_active_risk=target_active_risk,
-            benchmark_df=benchmark_df,
             progress_bar=progress_bar,
+            active_weights=active_weights
         )
         for date_ in dates
     ]
