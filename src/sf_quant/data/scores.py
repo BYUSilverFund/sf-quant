@@ -5,7 +5,7 @@ from ._tables import scores_table
 
 
 def load_scores(
-    start: dt.date, end: dt.date, columns: list[str], signal_names: list[str] = None
+    start: dt.date, end: dt.date, names: list[str] = None
 ) -> pl.DataFrame:
     """
     Load a Polars DataFrame of scores data between two dates.
@@ -16,16 +16,14 @@ def load_scores(
         Start date (inclusive) of the data frame.
     end : datetime.date
         End date (inclusive) of the data frame.
-    columns : list of str
-        List of column names to include in the result.
-    signal_names : list of str
+    names : list of str, optional
         List of signal names to filter the data frame by.
+        If None (default), all signal names are included.
 
     Returns
     -------
     polars.DataFrame
-        A DataFrame containing scores data between the specified dates,
-        with only the selected columns.
+        A DataFrame containing scores data between the specified dates.
 
     Examples
     --------
@@ -33,12 +31,10 @@ def load_scores(
     >>> import datetime as dt
     >>> start = dt.date(2024, 1, 1)
     >>> end = dt.date(2024, 12, 31)
-    >>> columns = ["barrid", "date", "signal_name", "score"]
     >>> df = sfd.load_scores(
     ...     start=start,
     ...     end=end,
-    ...     columns=columns,
-    ...     signal_names=["momentum"]
+    ...     names=["momentum"]
     ... )
     >>> df.head()
     shape: (5, 4)
@@ -54,15 +50,14 @@ def load_scores(
     │ 2022-01-03 ┆ USAA181 ┆ momentum    ┆ 0.227943  │
     └────────────┴─────────┴─────────────┴───────────┘
     """
-    if signal_names is not None:
+    if names is not None:
         return (
             scores_table.scan()
             .filter(
                 pl.col("date").is_between(start, end),
-                pl.col("signal_name").is_in(signal_names),
+                pl.col("signal_name").is_in(names),
             )
             .sort(["barrid", "date"])
-            .select(columns)
             .collect()
         )
 
@@ -71,13 +66,12 @@ def load_scores(
             scores_table.scan()
             .filter(pl.col("date").is_between(start, end))
             .sort(["barrid", "date"])
-            .select(columns)
             .collect()
         )
 
 
 def load_scores_by_date(
-    date_: dt.date, columns: list[str], signal_names: list[str] = None
+    date_: dt.date, names: list[str] = None
 ) -> pl.DataFrame:
     """
     Load a Polars DataFrame of scores data for a single date.
@@ -86,27 +80,23 @@ def load_scores_by_date(
     ----------
     date_ : datetime.date
         Date of the data frame.
-    columns : list of str
-        List of column names to include in the result.
-    signal_names : list of str
+    names : list of str, optional
         List of signal names to filter the data frame by.
+        If None (default), all signal names are included.
 
     Returns
     -------
     polars.DataFrame
-        A DataFrame containing scores data on the specified date,
-        with only the selected columns.
+        A DataFrame containing scores data on the specified date.
 
     Examples
     --------
     >>> import sf_quant as sf
     >>> import datetime as dt
     >>> date_ = dt.date(2024, 1, 3)
-    >>> columns = ["barrid", "date", "signal_name", "score"]
     >>> df = sf.data.load_scores_by_date(
     ...     date_=date_,
-    ...     columns=columns,
-    ...     signal_names=["momentum"]
+    ...     names=["momentum"]
     ... )
     >>> df.head()
     shape: (5, 4)
@@ -122,15 +112,14 @@ def load_scores_by_date(
     │ 2022-01-03 ┆ USAA181 ┆ momentum    ┆ 0.227943  │
     └────────────┴─────────┴─────────────┴───────────┘
     """
-    if signal_names is not None:
+    if names is not None:
         return (
             scores_table.scan()
             .filter(
                 pl.col("date").eq(date_),
-                pl.col("signal_name").is_in(signal_names),
+                pl.col("signal_name").is_in(names),
             )
             .sort(["barrid", "date"])
-            .select(columns)
             .collect()
         )
     else:
@@ -138,6 +127,29 @@ def load_scores_by_date(
             scores_table.scan(date_.year)
             .filter(pl.col("date").eq(date_))
             .sort(["barrid", "date"])
-            .select(columns)
             .collect()
         )
+
+
+def get_score_names() -> list[str]:
+    """
+    Return the list of available score (signal) names.
+
+    Returns
+    -------
+    list of str
+        A list of unique signal names in the scores dataset.
+
+    Examples
+    --------
+    >>> import sf_quant.data as sfd
+    >>> sfd.get_score_names()
+    ["momentum", "reversal", ...]
+    """
+    return (
+        scores_table.scan()
+        .select("signal_name")
+        .unique()
+        .collect()["signal_name"]
+        .to_list()
+    )
