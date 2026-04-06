@@ -19,7 +19,7 @@ from .factors import load_factors, get_factors_columns, get_factor_names
 from .fama_french import load_fama_french, get_fama_french_columns
 from .signals import load_signals, load_signals_by_date, get_signal_names
 from .scores import load_scores, load_scores_by_date, get_score_names
-from .alphas import load_alphas, load_alphas_by_date, load_combined_alphas, load_combined_alphas_by_date, get_alpha_names, get_combined_alpha_names
+from .alphas import load_alphas, load_alphas_by_date, get_alpha_names
 
 __all__ = [
     "env",
