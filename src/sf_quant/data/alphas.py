@@ -1,7 +1,7 @@
 import datetime as dt
 import polars as pl
 
-from ._tables import alphas_table, combined_alphas_table
+from ._tables import alphas_table
 
 
 def load_alphas(

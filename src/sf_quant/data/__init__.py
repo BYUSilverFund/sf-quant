@@ -20,6 +20,7 @@ from .fama_french import load_fama_french, get_fama_french_columns
 from .signals import load_signals, load_signals_by_date, get_signal_names
 from .scores import load_scores, load_scores_by_date, get_score_names
 from .alphas import load_alphas, load_alphas_by_date, get_alpha_names
+from .composite_alphas import load_composite_alphas, load_composite_alphas_by_date
 
 __all__ = [
     "env",
@@ -58,4 +59,6 @@ __all__ = [
     "load_alphas",
     "load_alphas_by_date",
     "get_alpha_names",
+    "load_composite_alphas",
+    "load_composite_alphas_by_date",
 ]
