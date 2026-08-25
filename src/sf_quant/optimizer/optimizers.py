@@ -13,6 +13,8 @@ def mve_optimizer(
     constraints: list[Constraint],
     gamma: float = 2,
     betas: np.ndarray | None = None,
+    benchmark_weights: np.ndarray | None = None,
+    active_weights: bool = False
 ) -> pl.DataFrame:
     """
     Mean-variance optimizer using a factor risk model decomposition.
@@ -45,6 +47,12 @@ def mve_optimizer(
     betas : np.ndarray, optional
         Predicted betas or other asset-level values required by certain constraints
         such as ``UnitBeta`` or ``ZeroBeta``.
+    benchmark_weights : np.ndarray, optional
+        Benchmark portfolio weights of shape (n_assets,), required if
+        ``target_active_risk`` is specified.
+    active_weights : bool
+        Flag indicating how to treat output weights of optimizer. False (default)
+        means that we subtract of benchmark weights before computing active risk.
 
     Returns
     -------
@@ -60,17 +68,22 @@ def mve_optimizer(
     >>> import numpy as np
     >>> ids = ['AAPL', 'IBM']
     >>> alphas = np.array([1.1, 1.2])
+    >>> betas = np.array([0.6, 1.4])
+    >>> benchmark_weights = np.array([.5, .5])
     >>> factor_exposures = np.array([[0.8, 0.5], [1.2, 0.3]])
     >>> factor_covariance = np.array([[0.5, 0.1], [0.1, 0.2]])
     >>> specific_risk = np.array([0.1, 0.15])
-    >>> constraints = [sfo.FullInvestment()]
+    >>> constraints = [sfo.FullInvestment(), sfo.UnitBeta()]
     >>> weights = sfo.mve_optimizer(
     ...     ids=ids,
     ...     alphas=alphas,
     ...     factor_exposures=factor_exposures,
     ...     factor_covariance=factor_covariance,
     ...     specific_risk=specific_risk,
-    ...     constraints=constraints
+    ...     constraints=constraints,
+    ...     active_weights=False,
+    ...     betas=betas,
+    ...     benchmark_weights=benchmark_weights,
     ... )
     >>> weights
     shape: (2, 2)
@@ -85,10 +98,17 @@ def mve_optimizer(
     """
     constraints = _construct_constraints(constraints, betas=betas)
 
+    bmk_factor_loadings = factor_exposures.T @ benchmark_weights
+    asset_bmk_factors_covar = factor_exposures @ (factor_covariance @ bmk_factor_loadings)
+    asset_bmk_specific_covar = specific_risk * benchmark_weights
+    asset_bmk_covariance = asset_bmk_factors_covar + asset_bmk_specific_covar
+
     optimal_weights = _quadratic_program(
         alphas=alphas,
         gamma=gamma,
         constraints=constraints,
+        asset_bmk_covariance=asset_bmk_covariance,
+        active_weights=active_weights,
         factor_exposures=factor_exposures,
         factor_covariance=factor_covariance,
         specific_risk=specific_risk,
@@ -106,7 +126,7 @@ def dynamic_mve_optimizer(
     constraints: list[Constraint],
     initial_gamma: float = 100,
     betas: np.ndarray | None = None,
-    target_active_risk: float | None = None,
+    target_active_risk: float | None = .05,
     benchmark_weights: np.ndarray | None = None,
     active_weights: bool = False
 ) -> pl.DataFrame:
@@ -169,11 +189,12 @@ def dynamic_mve_optimizer(
     >>> import numpy as np
     >>> ids = ['AAPL', 'IBM']
     >>> alphas = np.array([1.1, 1.2])
+    >>> betas = np.array([0.6, 1.4])
     >>> factor_exposures = np.array([[0.8, 0.5], [1.2, 0.3]])
     >>> factor_covariance = np.array([[0.5, 0.1], [0.1, 0.2]])
     >>> specific_risk = np.array([0.1, 0.15])
-    >>> benchmark_weights = np.array([0.4, 0.6])
-    >>> constraints = [sfo.FullInvestment()]
+    >>> benchmark_weights = np.array([0.5, 0.5])
+    >>> constraints = [sfo.FullInvestment(), sfo.UnitBeta()]
     >>> weights = sfo.dynamic_mve_optimizer(
     ...     ids=ids,
     ...     alphas=alphas,
@@ -183,7 +204,9 @@ def dynamic_mve_optimizer(
     ...     constraints=constraints,
     ...     initial_gamma=100,
     ...     target_active_risk=0.05,
-    ...     benchmark_weights=benchmark_weights
+    ...     benchmark_weights=benchmark_weights,
+    ...     active_weights=False,
+    ...     betas=betas
     ... )
     >>> weights
     shape: (2, 4)
@@ -198,6 +221,11 @@ def dynamic_mve_optimizer(
     """
     constructed_constraints = _construct_constraints(constraints, betas=betas)
 
+    bmk_factor_loadings = factor_exposures.T @ benchmark_weights
+    asset_bmk_factors_covar = factor_exposures @ (factor_covariance @ bmk_factor_loadings)
+    asset_bmk_specific_covar = specific_risk * benchmark_weights
+    asset_bmk_covariance = asset_bmk_factors_covar + asset_bmk_specific_covar
+
     # Build constraints for the calibration loop
     calibrated_gamma, active_risk = _calibrate_gamma(
         alphas=alphas,
@@ -205,6 +233,7 @@ def dynamic_mve_optimizer(
         factor_covariance=factor_covariance,
         specific_risk=specific_risk,
         benchmark_weights=benchmark_weights,
+        asset_bmk_covariance=asset_bmk_covariance,
         constraints=constructed_constraints,
         target_active_risk=target_active_risk,
         initial_gamma=initial_gamma,
@@ -213,11 +242,13 @@ def dynamic_mve_optimizer(
 
     optimal_weights = _quadratic_program(
         alphas=alphas,
-        gamma=calibrated_gamma,
-        constraints=constructed_constraints,
         factor_exposures=factor_exposures,
         factor_covariance=factor_covariance,
         specific_risk=specific_risk,
+        gamma=calibrated_gamma,
+        constraints=constructed_constraints,
+        asset_bmk_covariance=asset_bmk_covariance,
+        active_weights=active_weights
     )
 
     weights = pl.DataFrame({"barrid": ids, "weight": optimal_weights, 'gamma': calibrated_gamma, 'active_risk' : active_risk})
@@ -230,6 +261,8 @@ def _quadratic_program(
     specific_risk: np.ndarray,     # D: (N,) vector of idiosyncratic variance
     gamma: float,
     constraints: list[cp.Constraint],
+    asset_bmk_covariance : np.ndarray | None=None,
+    active_weights: bool=False,
 ) -> np.ndarray:
     """
     Solve a mean-variance optimization problem using a factor risk model.
@@ -260,6 +293,10 @@ def _quadratic_program(
         Risk aversion parameter. Higher values penalize variance more.
     constraints : list[cp.Constraint]
         List of instantiated CVXPY constraints.
+    asset_bmk_covariance : np.ndarray | None
+        Asset benchmark covariances, shape (n_assets,).
+    active_weights : bool
+        Whether the desired weights are active, as opposed to total.
 
     Returns
     -------
@@ -271,7 +308,14 @@ def _quadratic_program(
     weights = cp.Variable(n_assets)
     constraints = [constraint(weights) for constraint in constraints]
 
-    portfolio_return = weights.T @ alphas
+    if active_weights:
+        portfolio_return = weights.T @ alphas
+    else:
+        if asset_bmk_covariance is None:
+            raise TypeError("asset_bmk_covariance cannot be None for total portfolio.")
+        
+        portfolio_return = weights.T @ (alphas + gamma * asset_bmk_covariance)
+
     # alternative, faster calculation of portfolio variance
     factor_loadings = factor_exposures.T @ weights
     factor_variance = cp.quad_form(factor_loadings, factor_covariance)
@@ -292,12 +336,13 @@ def _calibrate_gamma(
     factor_covariance: np.ndarray,
     specific_risk: np.ndarray,
     benchmark_weights: np.ndarray,
+    asset_bmk_covariance : np.ndarray,
     constraints: list[Constraint],
     target_active_risk: float,
     initial_gamma: float = 100.0,
     error: float = 0.005,
     max_iterations: int = 5,
-    active_weights: bool = False
+    active_weights: bool = False,
 ):
     """
     Calibrate gamma to hit a target annualized active risk.
@@ -318,6 +363,8 @@ def _calibrate_gamma(
         D vector, shape (n_assets,).
     benchmark_weights : np.ndarray
         Benchmark portfolio weights, shape (n_assets,).
+    asset_bmk_covariance : np.ndarray
+        Asset benchmark covariances, shape (n_assets,).
     constraints : list[cp.Constraint]
         List of already-built CVXPY constraints.
     target_active_risk : float
@@ -344,7 +391,7 @@ def _calibrate_gamma(
 
     while abs(active_risk - target_active_risk) > error and iterations <= max_iterations:
         # Solve the optimization
-        weights = _quadratic_program(alphas, factor_exposures, factor_covariance, specific_risk, gamma, constraints)
+        weights = _quadratic_program(alphas, factor_exposures, factor_covariance, specific_risk, gamma, constraints, asset_bmk_covariance, active_weights)
   
         # Compute active weights if active_weights flag is False
         if not active_weights:
