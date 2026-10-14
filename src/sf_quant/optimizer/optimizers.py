@@ -104,19 +104,19 @@ def dynamic_mve_optimizer(
     factor_covariance: np.ndarray,
     specific_risk: np.ndarray,
     constraints: list[Constraint],
-    initial_gamma: float = 100,
+    target_active_risk: float,
     betas: np.ndarray | None = None,
-    target_active_risk: float | None = None,
     benchmark_weights: np.ndarray | None = None,
-    active_weights: bool = False
+    active_weights: bool = True,
+    enforce_zero_beta: bool = True
 ) -> pl.DataFrame:
     """
-    Mean-variance optimizer with optional active risk calibration.
+    Mean-variance optimizer with active risk calibration solved directly in active weight space.
 
-    Extends :func:`mve_optimizer` with the ability to automatically calibrate
-    the risk aversion parameter (gamma) to achieve a target level of active risk
-    (tracking error) relative to a benchmark portfolio. Uses iterative optimization
-    with linear regression to solve for the gamma that produces the desired active risk.
+    Extends standard mean-variance optimization by automatically enforcing the core Silver Fund
+    active mandate: dollar neutrality, benchmark-relative long-only bounds, and conditional
+    beta neutrality. It evaluates custom constraints while safely intercepting and ignoring
+    redundant total-space constraints to prevent solver conflicts.
 
     Parameters
     ----------
@@ -131,22 +131,24 @@ def dynamic_mve_optimizer(
     specific_risk : np.ndarray
         D vector of shape (n_assets,), idiosyncratic variance per asset.
     constraints : list[Constraint]
-        List of constraint objects implementing the ``Constraint`` protocol.
-    initial_gamma : float, optional
-        Starting value for gamma in calibration. Also used as the warm-start seed
-        if ``target_active_risk`` is specified. Default is 100.
+        List of constraint objects implementing the Constraint protocol.
+        Redundant baseline constraints ("FullInvestment", "ZeroInvestment", "LongOnly",
+        "UnitBeta", "ZeroBeta", "NoBuyingOnMargin") are automatically intercepted and ignored.
+        Custom constraints are evaluated on the total weight vector.
+    target_active_risk : float
+        Automatically calibrate the implied risk aversion (gamma) to achieve this target
+        annualized active risk (e.g., 0.05).
     betas : np.ndarray, optional
-        Predicted betas or other asset-level values required by certain constraints.
-    target_active_risk : float, optional
-        If specified, automatically calibrate gamma to achieve this target
-        annualized active risk (e.g., 0.05 for 5%). Requires ``benchmark_weights``.
-        If not specified, uses ``initial_gamma`` directly.
+        Predicted asset betas. Required if enforce_zero_beta is True.
     benchmark_weights : np.ndarray, optional
-        Benchmark portfolio weights of shape (n_assets,), required if
-        ``target_active_risk`` is specified.
-    active_weights : bool
-        Flag indicating how to treat output weights of optimizer. False (default)
-        means that we subtract of benchmark weights before computing active risk.
+        Benchmark portfolio weights of shape (n_assets,). Required to enforce the long-only
+        bound and to calculate total weights.
+    active_weights : bool, default True
+        Flag indicating the output format. True (default) returns pure active weights.
+        False adds benchmark weights back to return fully invested total weights.
+    enforce_zero_beta : bool, default True
+        If True and betas are provided, enforces a strict zero active beta constraint.
+        Set to False when testing factor signals with systematic beta exposure.
 
     Returns
     -------
@@ -157,70 +159,84 @@ def dynamic_mve_optimizer(
         - ``weight`` : float, optimized portfolio weight.
         - ``gamma`` : float, calibrated risk aversion parameter.
         - ``active_risk`` : float, achieved annualized active risk.
-
-    See Also
-    --------
-    mve_optimizer : Base mean-variance optimizer without active risk calibration.
-    _calibrate_gamma : Gamma calibration routine.
-
-    Examples
-    --------
-    >>> import sf_quant.optimizer as sfo
-    >>> import numpy as np
-    >>> ids = ['AAPL', 'IBM']
-    >>> alphas = np.array([1.1, 1.2])
-    >>> factor_exposures = np.array([[0.8, 0.5], [1.2, 0.3]])
-    >>> factor_covariance = np.array([[0.5, 0.1], [0.1, 0.2]])
-    >>> specific_risk = np.array([0.1, 0.15])
-    >>> benchmark_weights = np.array([0.4, 0.6])
-    >>> constraints = [sfo.FullInvestment()]
-    >>> weights = sfo.dynamic_mve_optimizer(
-    ...     ids=ids,
-    ...     alphas=alphas,
-    ...     factor_exposures=factor_exposures,
-    ...     factor_covariance=factor_covariance,
-    ...     specific_risk=specific_risk,
-    ...     constraints=constraints,
-    ...     initial_gamma=100,
-    ...     target_active_risk=0.05,
-    ...     benchmark_weights=benchmark_weights
-    ... )
-    >>> weights
-    shape: (2, 4)
-    ┌────────┬────────┬───────┬──────────────┐
-    │ barrid ┆ weight ┆ gamma ┆ active_risk  │
-    │ ---    ┆ ---    ┆ ---   ┆ ---          │
-    │ str    ┆ f64    ┆ f64   ┆ f64          │
-    ╞════════╪════════╪═══════╪══════════════╡
-    │ AAPL   ┆ 0.40   ┆ 75.5  ┆ 0.05         │
-    │ IBM    ┆ 0.60   ┆ 75.5  ┆ 0.05         │
-    └────────┴────────┴───────┴──────────────┘
     """
-    constructed_constraints = _construct_constraints(constraints, betas=betas)
+    if benchmark_weights is None:
+        raise ValueError(
+            "benchmark_weights must be provided to enforce the long-only boundary (h >= -b)."
+        )
 
-    # Build constraints for the calibration loop
-    calibrated_gamma, active_risk = _calibrate_gamma(
-        alphas=alphas,
-        factor_exposures=factor_exposures,
-        factor_covariance=factor_covariance,
-        specific_risk=specific_risk,
-        benchmark_weights=benchmark_weights,
-        constraints=constructed_constraints,
-        target_active_risk=target_active_risk,
-        initial_gamma=initial_gamma,
-        active_weights=active_weights
-    )
+    if enforce_zero_beta and betas is None:
+        raise ValueError(
+            "betas must be provided when enforce_zero_beta is True."
+        )
+    
+    n_assets = len(alphas)
+    
+    h = cp.Variable(n_assets)
+    w = benchmark_weights + h  # Simplified
 
-    optimal_weights = _quadratic_program(
-        alphas=alphas,
-        gamma=calibrated_gamma,
-        constraints=constructed_constraints,
-        factor_exposures=factor_exposures,
-        factor_covariance=factor_covariance,
-        specific_risk=specific_risk,
-    )
+    factor_loadings = factor_exposures.T @ h
+    factor_variance = cp.quad_form(factor_loadings, factor_covariance)
+    specific_variance = cp.sum(cp.multiply(specific_risk, cp.square(h)))
+    active_variance = factor_variance + specific_variance
+    te_constraint = active_variance <= (target_active_risk ** 2)
 
-    weights = pl.DataFrame({"barrid": ids, "weight": optimal_weights, 'gamma': calibrated_gamma, 'active_risk' : active_risk})
+    cvxpy_constraints = [
+        cp.sum(h) == 0,
+        h >= -benchmark_weights,  # Simplified unconditionally
+        te_constraint
+    ]
+
+    if enforce_zero_beta:
+        cvxpy_constraints.append(betas @ h == 0)  # Simplified
+
+    if constraints:
+        redundant_types = {
+            "FullInvestment",
+            "ZeroInvestment",
+            "LongOnly",
+            "UnitBeta",
+            "ZeroBeta",
+            "NoBuyingOnMargin"
+        }
+        
+        custom_constraints = [c for c in constraints if type(c).__name__ not in redundant_types]
+        if custom_constraints:
+            constructed_custom = _construct_constraints(custom_constraints, betas=betas)
+            cvxpy_constraints.extend([c(w) for c in constructed_custom])
+
+    objective = cp.Maximize(alphas @ h)
+    
+    problem = cp.Problem(objective, cvxpy_constraints)
+    problem.solve(solver='CLARABEL')
+
+    if problem.status not in ["optimal", "optimal_inaccurate"]:
+        raise ValueError(f"Optimization failed. Status: {problem.status}")
+
+    optimal_h = h.value
+
+    act_fac_load = factor_exposures.T @ optimal_h
+    act_fac_var = act_fac_load.T @ factor_covariance @ act_fac_load
+    act_spec_var = np.sum(specific_risk * np.square(optimal_h))
+    realized_active_risk = float(np.sqrt(max(0.0, act_fac_var + act_spec_var)))
+
+    if te_constraint.dual_value is not None:
+        calibrated_gamma = float(2.0 * te_constraint.dual_value)
+    else:
+        calibrated_gamma = 0.0
+
+    if active_weights:  # Simplified
+        output_weights = optimal_h
+    else:
+        output_weights = optimal_h + benchmark_weights
+
+    weights = pl.DataFrame({
+        "barrid": ids,
+        "weight": output_weights,
+        "gamma": calibrated_gamma,
+        "active_risk": realized_active_risk
+    })
+    
     return weights
 
 def _quadratic_program(
@@ -285,91 +301,3 @@ def _quadratic_program(
     problem.solve(solver="OSQP")
 
     return weights.value
-
-def _calibrate_gamma(
-    alphas: np.ndarray,
-    factor_exposures: np.ndarray,
-    factor_covariance: np.ndarray,
-    specific_risk: np.ndarray,
-    benchmark_weights: np.ndarray,
-    constraints: list[Constraint],
-    target_active_risk: float,
-    initial_gamma: float = 100.0,
-    error: float = 0.005,
-    max_iterations: int = 5,
-    active_weights: bool = False
-):
-    """
-    Calibrate gamma to hit a target annualized active risk.
-
-    Uses iterative optimization with linear regression on 1/(2*lambda) vs
-    observed active risk to predict the gamma that produces the desired
-    annualized tracking error vs. the benchmark.
-
-    Parameters
-    ----------
-    alphas : np.ndarray
-        Expected returns, shape (n_assets,).
-    factor_exposures : np.ndarray
-        B matrix, shape (n_assets, n_factors).
-    factor_covariance : np.ndarray
-        F matrix, shape (n_factors, n_factors).
-    specific_risk : np.ndarray
-        D vector, shape (n_assets,).
-    benchmark_weights : np.ndarray
-        Benchmark portfolio weights, shape (n_assets,).
-    constraints : list[cp.Constraint]
-        List of already-built CVXPY constraints.
-    target_active_risk : float
-        Desired annualized active risk (e.g., 0.05 for 5%).
-    initial_gamma : float
-        Starting value for gamma. Default 100.
-    error : float
-        Convergence tolerance. Default 0.005 (0.5%).
-    max_iterations : int
-        Maximum number of iterations. Default 5.
-    active_weights : bool
-        Flag indicating how to treat output weights of optimizer. False (default)
-        means that we subtract of benchmark weights before computing active risk.
-
-    Returns
-    -------
-    float
-        Calibrated gamma.
-    """
-    gamma = initial_gamma
-    active_risk = float('inf')
-    iterations = 1
-    data = []
-
-    while abs(active_risk - target_active_risk) > error and iterations <= max_iterations:
-        # Solve the optimization
-        weights = _quadratic_program(alphas, factor_exposures, factor_covariance, specific_risk, gamma, constraints)
-  
-        # Compute active weights if active_weights flag is False
-        if not active_weights:
-            active_w = weights - benchmark_weights
-        else:
-            active_w = weights
-
-        # Compute active risk using factor model
-        active_factor_loadings = factor_exposures.T @ active_w
-        active_factor_var = active_factor_loadings @ factor_covariance @ active_factor_loadings
-        active_specific_var = np.sum(specific_risk * np.square(active_w))
-        active_variance = active_factor_var + active_specific_var
-        active_risk = float(np.sqrt(active_variance))
-        data.append((gamma, active_risk))
-
-        if abs(active_risk - target_active_risk) <= error:
-            break
-
-        # Predict next gamma using linear regression on 1/(2*lambda) vs active risk
-        data_np = np.array(data)
-        gammas = data_np[:, 0]
-        ar_vals = data_np[:, 1]
-        X = 1.0 / (2.0 * gammas)
-        M = np.dot(X, ar_vals) / np.dot(X, X)
-        gamma = M / (2.0 * target_active_risk)
-
-        iterations += 1
-    return gamma, active_risk
