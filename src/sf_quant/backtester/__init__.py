@@ -1,8 +1,8 @@
 """
 The ``backtester`` module provides tools for simulating trading strategies
-over historical data. It exposes a clean public API for running backtests,
-generating performance metrics, and analyzing trade signals, while keeping
-internal execution details hidden.
+over historical data. It exposes a clean public API for running sequential,
+parallel (Ray) and dynamic mean-variance backtests. The ``slurm`` subpackage
+distributes these backtests across a SLURM cluster, one task per year.
 """
 
 from .sequential import backtest_sequential

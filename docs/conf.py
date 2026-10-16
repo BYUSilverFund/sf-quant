@@ -1,4 +1,5 @@
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 # Configuration file for the Sphinx documentation builder.
@@ -15,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 project = "Silver Fund Quant"
 copyright = "2025, Andrew Hall"
 author = "Andrew Hall"
-release = "0.1.2"
+release = version("sf-quant")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

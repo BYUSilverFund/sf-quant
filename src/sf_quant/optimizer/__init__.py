@@ -10,11 +10,11 @@ from .constraints import LongOnly, FullInvestment, ZeroInvestment, NoBuyingOnMar
 
 __all__ = [
     "mve_optimizer",
-    "dynamic_mve_optimizer"
+    "dynamic_mve_optimizer",
     "LongOnly",
     "FullInvestment",
     "ZeroInvestment",
     "NoBuyingOnMargin",
     "UnitBeta",
-    "ZeroBeta"
+    "ZeroBeta",
 ]

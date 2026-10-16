@@ -48,3 +48,5 @@ Data
    get_alpha_names
    load_composite_alphas
    load_composite_alphas_by_date
+   load_optimal_weights
+   load_optimal_weights_by_date

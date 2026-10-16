@@ -288,12 +288,10 @@ def _quadratic_program(
     constraints = [constraint(weights) for constraint in constraints]
 
     portfolio_return = weights.T @ alphas
-    # alternative, faster calculation of portfolio variance
     factor_loadings = factor_exposures.T @ weights
     factor_variance = cp.quad_form(factor_loadings, factor_covariance)
     specific_variance = cp.sum(cp.multiply(specific_risk, cp.square(weights)))
     portfolio_variance = factor_variance + specific_variance
-    #portfolio_variance = weights.T @ covariance_matrix @ weights
 
     objective = cp.Maximize(portfolio_return - 0.5 * gamma * portfolio_variance)
 
