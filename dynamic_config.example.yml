@@ -1,0 +1,29 @@
+# Example configuration for SLURM backtesting
+# Copy this file and modify for your backtest
+
+signal_name: momentum
+data_path: /path/to/project/temp/alphas.parquet
+initial_gamma: 50
+target_active_risk: 0.05
+active_weights: True
+
+# Required: your project setup
+project_root: /path/to/project
+byu_email: your.email@byu.edu
+
+# Optimization constraints
+constraints:
+  - ZeroBeta
+  - ZeroInvestment
+
+# SLURM configuration (all optional with defaults)
+slurm:
+  n_cpus: 8
+  mem: 32G
+  time: "06:00:00"
+  mail_type: BEGIN,END,FAIL
+  max_concurrent_jobs: 31
+
+# Optional: override default output paths
+# output_dir: /custom/path/to/weights
+# logs_dir: /custom/path/to/logs

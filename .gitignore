@@ -1,6 +1,6 @@
 # Archive
 /.archive
-*test*.py
+test_*.py
 
 # Scratch
 *scratch*.py

@@ -18,7 +18,12 @@ dependencies = [
     "polars-ols>=0.3.5",
     "ipywidgets>=8.1.8",
     "statsmodels>=0.14.0",
+    "pyyaml>=6.0.3",
+    "click>=8.1.0",
 ]
+
+[project.scripts]
+sf_backtester = "sf_quant.backtester.slurm.cli:main"
 
 
 [build-system]
