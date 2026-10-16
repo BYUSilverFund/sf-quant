@@ -3,11 +3,9 @@ import os
 import ray
 import datetime as dt
 from ray.experimental import tqdm_ray
-from sf_quant.data.benchmark import load_benchmark
 from sf_quant.data.covariance_matrix import construct_factor_model_components
 from sf_quant.optimizer.optimizers import dynamic_mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
-from sf_quant.schema.portfolio_schema import PortfolioSchema
 
 
 @ray.remote
