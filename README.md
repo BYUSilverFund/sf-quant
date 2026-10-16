@@ -116,6 +116,9 @@ Load financial data as Polars DataFrames. Use `get_*_columns()` to inspect avail
 | `load_benchmark()` / `load_benchmark_returns()` | Benchmark weights and returns |
 | `load_factors()` / `get_factor_names()` | Barra factor returns and metadata |
 | `load_fama_french()` | Fama-French 5-factor data |
+| `load_signals()` / `load_scores()` / `load_alphas()` | Stored signals, standardized scores, and alphas (plus `*_by_date()` and `get_*_names()`) |
+| `load_composite_alphas()` / `load_composite_alphas_by_date()` | Composite alpha forecasts |
+| `load_optimal_weights()` / `load_optimal_weights_by_date()` | Stored optimal portfolio weights |
 
 ### `sf_quant.optimizer`
 
@@ -146,7 +149,8 @@ weights = sfo.mve_optimizer(
 
 ### `sf_quant.backtester`
 
-Run walk-forward backtests that optimize at each rebalance date.
+Run walk-forward backtests that optimize at each rebalance date. The input `data` needs `date`, `barrid`,
+`alpha`, `predicted_beta`, and `benchmark_weight` columns (the last is only needed for total-portfolio constraints).
 
 ```python
 import sf_quant.backtester as sfb
@@ -156,7 +160,50 @@ portfolio = sfb.backtest_sequential(data=df, constraints=constraints, gamma=2)
 
 # Parallel (multi-core via Ray)
 portfolio = sfb.backtest_parallel(data=df, constraints=constraints, gamma=2, n_cpus=4)
+
+# Dynamic: calibrates gamma each period to hit a target active risk
+portfolio = sfb.dynamic_backtest_parallel(
+    data=df, constraints=constraints, initial_gamma=50, target_active_risk=0.05, active_weights=True, n_cpus=4
+)
 ```
+
+#### SLURM backtesting (`sf_quant.backtester.slurm`)
+
+For long histories, distribute a backtest across a SLURM cluster with one array task per year. Each task runs
+`backtest_parallel` (or `dynamic_backtest_parallel`) for its year and writes `{output_dir}/{year}.parquet`
+containing portfolio weights. The input parquet needs the same columns as above.
+
+Using the CLI (installed as `sf_backtester`) with a YAML config (see `config.example.yml` and
+`dynamic_config.example.yml`):
+
+```bash
+sf_backtester run config.yml                # static backtest (fixed gamma)
+sf_backtester run-dynamic dynamic_config.yml  # dynamic backtest (target active risk)
+sf_backtester run config.yml --dry-run      # print the sbatch script without submitting
+```
+
+Or from Python:
+
+```python
+from sf_quant.backtester.slurm import BacktestConfig, BacktestRunner, SlurmConfig
+
+config = BacktestConfig(
+    signal_name="momentum",
+    gamma=50,
+    data_path="/path/to/alphas.parquet",
+    project_root="/path/to/project",  # must contain a .venv with sf-quant installed
+    byu_email="you@byu.edu",
+    constraints=["ZeroBeta", "ZeroInvestment"],
+    slurm=SlurmConfig(n_cpus=8, mem="32G", time="03:00:00", max_concurrent_jobs=30),
+)
+BacktestRunner(config).submit()  # or BacktestRunner.from_yaml("config.yml").submit(data=df)
+```
+
+`BacktestDynamicConfig` / `BacktestDynamicRunner` take `initial_gamma`, `target_active_risk` and `active_weights`
+instead of `gamma`. Use `active_weights: true` with `ZeroBeta` + `ZeroInvestment`, and `false` with `UnitBeta`,
+`FullInvestment` and `LongOnly`. Constraint names are the class names listed under `sf_quant.optimizer`.
+Default output is `{project_root}/weights/{signal_name}/{gamma or target_active_risk}`; logs go to `logs/...`.
+Worked examples live in `examples/` (build alphas, submit, analyze results).
 
 ### `sf_quant.performance`
 
@@ -191,6 +238,11 @@ Tools for signal analysis and factor research.
 | `run_quantile_ff_regression()` | FF regressions across quantile portfolios |
 | `get_signal_stats()` | Summary statistics for a signal |
 | `get_signal_distribution()` | Plot signal distribution |
+
+## Examples
+
+`examples/` contains an end-to-end workflow: `1_data.py` builds momentum alphas, `2a_backtest.py` /
+`2b_backtest_dynamic.py` submit SLURM backtests, and `3_results.py` analyzes the weights with `sf_quant.performance`.
 
 ## Documentation Development
 

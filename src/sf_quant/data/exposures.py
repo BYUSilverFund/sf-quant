@@ -87,6 +87,26 @@ def load_exposures(start: dt.date, end: dt.date, in_universe: bool, columns: lis
 
 
 def load_exposures_by_date(date_: dt.date) -> pl.DataFrame:
+    """
+    Load Barra factor exposures for all assets on a single date.
+
+    Parameters
+    ----------
+    date_ : datetime.date
+        Date of the exposures.
+
+    Returns
+    -------
+    polars.DataFrame
+        A DataFrame of factor exposures sorted by ``barrid``. See
+        :func:`get_exposures_columns` for the available columns.
+
+    Examples
+    --------
+    >>> import sf_quant.data as sfd
+    >>> import datetime as dt
+    >>> df = sfd.load_exposures_by_date(dt.date(2024, 1, 3))
+    """
     return (
         exposures_table.scan(date_.year)
         .filter(pl.col("date").eq(date_))
