@@ -9,12 +9,12 @@ def generate_alpha_ics(
     window: int = 22
     ) -> pl.DataFrame:
     """
-    Compute Information Coefficients (ICs) between previous-day alpha and realized returns.
+    Compute Information Coefficients (ICs) between alpha and subsequent realized returns.
 
-    This function calculates the IC for each date by aligning the alpha signal
-    with the realized return at the end of the given window for each
-    asset. IC can be computed either as a Pearson correlation (raw values) or as a 
-    Spearman correlation (ranked values).
+    This function calculates the IC for each date by correlating the alpha
+    formed on that date with each asset's compounded return over the next
+    ``window`` trading days. IC can be computed either as a Pearson correlation
+    (raw values) or as a Spearman correlation (ranked values).
 
     Parameters
     ----------
@@ -53,8 +53,12 @@ def generate_alpha_ics(
 
     Notes
     -----
-    - The function first shifts alpha values by one day per asset to align with
-      the next day's realized return.
+    - An alpha dated t is scored against the return compounded over trading
+      days t+1 through t+window of ``rets``. Day t's own return is already
+      known when the alpha is formed, so it is excluded.
+    - The IC of the Student Manual (section 4.6.3) correlates standardized
+      scores with abnormal returns: pass scores in the ``alpha`` column and
+      abnormal returns (e.g. Barra ``specific_return``) in ``rets``.
     - Observations with null or non-finite alpha or return values are excluded.
     - Spearman IC is computed by ranking alpha and return values within each date
       and then calculating the Pearson correlation of ranks.
@@ -65,50 +69,51 @@ def generate_alpha_ics(
     --------
     >>> import polars as pl
     >>> import datetime as dt
+    >>> d = [dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 4)]
     >>> alphas = pl.DataFrame(
     ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA06Z1'],
-    ...         'alpha': [0.02, -0.01]
+    ...         'date': [d[0], d[0], d[1], d[1]],
+    ...         'barrid': ['USA06Z1', 'USA0771'] * 2,
+    ...         'alpha': [0.02, -0.01, -0.01, 0.02]
     ...     }
     ... )
     >>> rets = pl.DataFrame(
     ...     {
-    ...         'date': [dt.date(2024, 1, 3), dt.date(2024, 1, 4)],
-    ...         'barrid': ['USA06Z1', 'USA06Z1'],
-    ...         'return': [0.01, -0.02]
+    ...         'date': [x for x in d for _ in range(2)],
+    ...         'barrid': ['USA06Z1', 'USA0771'] * 3,
+    ...         'return': [-0.03, 0.03, 0.01, -0.02, -0.01, 0.02]
     ...     }
     ... )
-
-    >>> alphas = dy.validate(alphas, AlphaSchema)
-    >>> rets = dy.validate(rets, SecurityRetSchema)
-    >>> ic_df = generate_alpha_ics(alphas, rets, method="rank")
-    >>> ic_df
+    >>> generate_alpha_ics(alphas, rets, method="rank", window=1).sort("date")
     shape: (2, 3)
-    ┌────────────┬──────────┬─────┐
-    │ date       ┆ ic       ┆ n   │
-    │ ---        ┆ ---      ┆ --- │
-    │ date       ┆ f64      ┆ i64 │
-    ╞════════════╪══════════╪═════╡
-    │ 2024-01-03 ┆ 1.0      ┆ 1   │
-    │ 2024-01-04 ┆ -1.0     ┆ 1   │
-    └────────────┴──────────┴─────┘
+    ┌────────────┬─────┬─────┐
+    │ date       ┆ ic  ┆ n   │
+    │ ---        ┆ --- ┆ --- │
+    │ date       ┆ f64 ┆ u32 │
+    ╞════════════╪═════╪═════╡
+    │ 2024-01-02 ┆ 1.0 ┆ 2   │
+    │ 2024-01-03 ┆ 1.0 ┆ 2   │
+    └────────────┴─────┴─────┘
+
+    Each date's alpha is scored against the next day's return; scoring
+    2024-01-02's alpha against that day's own return would give -1.
     """
-    # Lag alpha by security
     alphas = (
         alphas
         .sort(["barrid", "date"])
         .select("date", "barrid", "alpha")
     )
 
+    # Return compounded over t+1..t+window, per security: the window ending
+    # `window` rows ahead.
     rets = (
         rets
         .select("date", "barrid", "return")
         .sort(["barrid", "date"])
         .with_columns(
             pl.col("return").log1p()
-            .rolling_sum(window).over("barrid")
-            .exp().sub(1).shift(-window + 1)
+            .rolling_sum(window).shift(-window).over("barrid")
+            .exp().sub(1)
             .alias("window_return")
             )
     )
