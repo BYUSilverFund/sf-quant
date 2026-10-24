@@ -4,6 +4,7 @@ import polars as pl
 
 from .constraints import Constraint, _construct_constraints
 
+
 def mve_optimizer(
     ids: list[str],
     alphas: np.ndarray,
@@ -53,42 +54,13 @@ def mve_optimizer(
 
         - ``barrid`` : str, asset identifier.
         - ``weight`` : float, optimized portfolio weight.
-
-    Examples
-    --------
-    >>> import sf_quant.optimizer as sfo
-    >>> import numpy as np
-    >>> ids = ['AAPL', 'IBM']
-    >>> alphas = np.array([1.1, 1.2])
-    >>> factor_exposures = np.array([[0.8, 0.5], [1.2, 0.3]])
-    >>> factor_covariance = np.array([[0.5, 0.1], [0.1, 0.2]])
-    >>> specific_risk = np.array([0.1, 0.15])
-    >>> constraints = [sfo.FullInvestment()]
-    >>> weights = sfo.mve_optimizer(
-    ...     ids=ids,
-    ...     alphas=alphas,
-    ...     factor_exposures=factor_exposures,
-    ...     factor_covariance=factor_covariance,
-    ...     specific_risk=specific_risk,
-    ...     constraints=constraints
-    ... )
-    >>> weights
-    shape: (2, 2)
-    ┌────────┬────────┐
-    │ barrid ┆ weight │
-    │ ---    ┆ ---    │
-    │ str    ┆ f64    │
-    ╞════════╪════════╡
-    │ AAPL   ┆ 0.45   │
-    │ IBM    ┆ 0.55   │
-    └────────┴────────┘
     """
-    constraints = _construct_constraints(constraints, betas=betas)
+    constructed_constraints = _construct_constraints(constraints, betas=betas)
 
     optimal_weights = _quadratic_program(
         alphas=alphas,
         gamma=gamma,
-        constraints=constraints,
+        constraints=constructed_constraints,
         factor_exposures=factor_exposures,
         factor_covariance=factor_covariance,
         specific_risk=specific_risk,
@@ -97,6 +69,7 @@ def mve_optimizer(
     weights = pl.DataFrame({"barrid": ids, "weight": optimal_weights})
     return weights
 
+
 def dynamic_mve_optimizer(
     ids: list[str],
     alphas: np.ndarray,
@@ -104,19 +77,18 @@ def dynamic_mve_optimizer(
     factor_covariance: np.ndarray,
     specific_risk: np.ndarray,
     constraints: list[Constraint],
-    target_active_risk: float,
+    target_active_risk: float = 0.05,
     betas: np.ndarray | None = None,
     benchmark_weights: np.ndarray | None = None,
     active_weights: bool = True,
-    enforce_zero_beta: bool = True
 ) -> pl.DataFrame:
     """
-    Mean-variance optimizer with active risk calibration solved directly in active weight space.
+    Mean-variance optimizer with dynamic risk calibration in active weight space.
 
-    Extends standard mean-variance optimization by automatically enforcing the core Silver Fund
-    active mandate: dollar neutrality, benchmark-relative long-only bounds, and conditional
-    beta neutrality. It evaluates custom constraints while safely intercepting and ignoring
-    redundant total-space constraints to prevent solver conflicts.
+    Solves for optimal active weights :math:`h` by maximizing expected alpha subject
+    to a conic risk cap (:math:`h^T V h \\le \\sigma_{\\text{target}}^2`) and any
+    user-supplied ``Constraint`` objects. Implied risk aversion (:math:`\\gamma`) is
+    extracted analytically from the conic dual shadow price.
 
     Parameters
     ----------
@@ -131,24 +103,26 @@ def dynamic_mve_optimizer(
     specific_risk : np.ndarray
         D vector of shape (n_assets,), idiosyncratic variance per asset.
     constraints : list[Constraint]
-        List of constraint objects implementing the Constraint protocol.
-        Redundant baseline constraints ("FullInvestment", "ZeroInvestment", "LongOnly",
-        "UnitBeta", "ZeroBeta", "NoBuyingOnMargin") are automatically intercepted and ignored.
-        Custom constraints are evaluated on the total weight vector.
-    target_active_risk : float
-        Automatically calibrate the implied risk aversion (gamma) to achieve this target
-        annualized active risk (e.g., 0.05).
+        List of modular ``Constraint`` objects to enforce:
+        - Silver Fund Mandate: ``[ZeroInvestment(), LongOnly(), ZeroBeta()]``
+        - 130/30 Extension: ``[ZeroInvestment(), GrossLeverage(1.60)]``
+        - Dollar-neutral Research: ``[ZeroInvestment()]``
+        - Risk-only Research: ``[]``
+        An empty list applies only the risk cap. No investment, beta-neutrality,
+        or long-only constraints are implied.
+    target_active_risk : float, default 0.05
+        Target annualized risk cap (e.g., 0.05 for 5%).
     betas : np.ndarray, optional
-        Predicted asset betas. Required if enforce_zero_beta is True.
+        Predicted asset betas. Required if beta constraints (``ZeroBeta``,
+        ``UnitBeta``) are included in ``constraints``.
     benchmark_weights : np.ndarray, optional
-        Benchmark portfolio weights of shape (n_assets,). Required to enforce the long-only
-        bound and to calculate total weights.
+        Benchmark portfolio weights of shape (n_assets,). Used by total-space
+        constraints (``LongOnly``, ``FullInvestment``, ``NoBuyingOnMargin``,
+        ``GrossLeverage``, ``UnitBeta``) to map :math:`w = h + b`, and required
+        when ``active_weights=False``.
     active_weights : bool, default True
-        Flag indicating the output format. True (default) returns pure active weights.
-        False adds benchmark weights back to return fully invested total weights.
-    enforce_zero_beta : bool, default True
-        If True and betas are provided, enforces a strict zero active beta constraint.
-        Set to False when testing factor signals with systematic beta exposure.
+        If True, returns the optimized active weight vector :math:`h`.
+        If False, returns total portfolio weights :math:`w = h + b`.
 
     Returns
     -------
@@ -158,22 +132,15 @@ def dynamic_mve_optimizer(
         - ``barrid`` : str, asset identifier.
         - ``weight`` : float, optimized portfolio weight.
         - ``gamma`` : float, calibrated risk aversion parameter.
-        - ``active_risk`` : float, achieved annualized active risk.
+        - ``active_risk`` : float, model-predicted annualized active risk.
     """
-    if benchmark_weights is None:
+    if not active_weights and benchmark_weights is None:
         raise ValueError(
-            "benchmark_weights must be provided to enforce the long-only boundary (h >= -b)."
+            "benchmark_weights must be provided when active_weights is False."
         )
 
-    if enforce_zero_beta and betas is None:
-        raise ValueError(
-            "betas must be provided when enforce_zero_beta is True."
-        )
-    
     n_assets = len(alphas)
-    
     h = cp.Variable(n_assets)
-    w = benchmark_weights + h  # Simplified
 
     factor_loadings = factor_exposures.T @ h
     factor_variance = cp.quad_form(factor_loadings, factor_covariance)
@@ -181,34 +148,19 @@ def dynamic_mve_optimizer(
     active_variance = factor_variance + specific_variance
     te_constraint = active_variance <= (target_active_risk ** 2)
 
-    cvxpy_constraints = [
-        cp.sum(h) == 0,
-        h >= -benchmark_weights,  # Simplified unconditionally
-        te_constraint
-    ]
-
-    if enforce_zero_beta:
-        cvxpy_constraints.append(betas @ h == 0)  # Simplified
+    cvxpy_constraints = [te_constraint]
 
     if constraints:
-        redundant_types = {
-            "FullInvestment",
-            "ZeroInvestment",
-            "LongOnly",
-            "UnitBeta",
-            "ZeroBeta",
-            "NoBuyingOnMargin"
-        }
-        
-        custom_constraints = [c for c in constraints if type(c).__name__ not in redundant_types]
-        if custom_constraints:
-            constructed_custom = _construct_constraints(custom_constraints, betas=betas)
-            cvxpy_constraints.extend([c(w) for c in constructed_custom])
+        constructed = _construct_constraints(
+            constraints,
+            betas=betas,
+            benchmark_weights=benchmark_weights,
+        )
+        cvxpy_constraints.extend([c(h) for c in constructed])
 
     objective = cp.Maximize(alphas @ h)
-    
     problem = cp.Problem(objective, cvxpy_constraints)
-    problem.solve(solver='CLARABEL')
+    problem.solve(solver="CLARABEL")
 
     if problem.status not in ["optimal", "optimal_inaccurate"]:
         raise ValueError(f"Optimization failed. Status: {problem.status}")
@@ -225,7 +177,7 @@ def dynamic_mve_optimizer(
     else:
         calibrated_gamma = 0.0
 
-    if active_weights:  # Simplified
+    if active_weights:
         output_weights = optimal_h
     else:
         output_weights = optimal_h + benchmark_weights
@@ -234,70 +186,40 @@ def dynamic_mve_optimizer(
         "barrid": ids,
         "weight": output_weights,
         "gamma": calibrated_gamma,
-        "active_risk": realized_active_risk
+        "active_risk": realized_active_risk,
     })
-    
+
     return weights
+
 
 def _quadratic_program(
     alphas: np.ndarray,
-    factor_exposures: np.ndarray,  # B: (N x K)
-    factor_covariance: np.ndarray, # F: (K x K)
-    specific_risk: np.ndarray,     # D: (N,) vector of idiosyncratic variance
+    factor_exposures: np.ndarray,
+    factor_covariance: np.ndarray,
+    specific_risk: np.ndarray,
     gamma: float,
-    constraints: list[cp.Constraint],
+    constraints: list,
 ) -> np.ndarray:
     """
     Solve a mean-variance optimization problem using a factor risk model.
-
-    This is a private helper function that uses CVXPY to solve:
-
-    .. math::
-
-        \\max_w \\left( w^T \\alpha - \\frac{\\gamma}{2} w^T \\Sigma w \\right)
-
-    where :math:`\\Sigma` is the factor model covariance matrix:
-
-    .. math::
-
-        \\Sigma = B F B^T + \\text{diag}(D)
-
-    Parameters
-    ----------
-    alphas : np.ndarray
-        Expected returns, shape (n_assets,).
-    factor_exposures : np.ndarray
-        B matrix of shape (n_assets, n_factors), asset exposures to factors.
-    factor_covariance : np.ndarray
-        F matrix of shape (n_factors, n_factors), factor covariance.
-    specific_risk : np.ndarray
-        D vector of shape (n_assets,), idiosyncratic variance per asset.
-    gamma : float
-        Risk aversion parameter. Higher values penalize variance more.
-    constraints : list[cp.Constraint]
-        List of instantiated CVXPY constraints.
-
-    Returns
-    -------
-    np.ndarray
-        Optimal portfolio weights, shape (n_assets,).
     """
     n_assets = len(alphas)
 
     weights = cp.Variable(n_assets)
-    constraints = [constraint(weights) for constraint in constraints]
+    cvxpy_constraints = [constraint(weights) for constraint in constraints]
 
     portfolio_return = weights.T @ alphas
-    # alternative, faster calculation of portfolio variance
     factor_loadings = factor_exposures.T @ weights
     factor_variance = cp.quad_form(factor_loadings, factor_covariance)
     specific_variance = cp.sum(cp.multiply(specific_risk, cp.square(weights)))
     portfolio_variance = factor_variance + specific_variance
-    #portfolio_variance = weights.T @ covariance_matrix @ weights
 
     objective = cp.Maximize(portfolio_return - 0.5 * gamma * portfolio_variance)
 
-    problem = cp.Problem(objective, constraints)
+    problem = cp.Problem(objective, cvxpy_constraints)
     problem.solve(solver="OSQP")
+
+    if problem.status not in ["optimal", "optimal_inaccurate"]:
+        raise ValueError(f"Optimization failed. Status: {problem.status}")
 
     return weights.value

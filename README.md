@@ -137,12 +137,48 @@ weights = sfo.mve_optimizer(
 
 | Constraint | Effect |
 |---|---|
-| `FullInvestment()` | Weights sum to 1 |
-| `ZeroInvestment()` | Weights sum to 0 |
-| `LongOnly()` | No short positions |
-| `NoBuyingOnMargin()` | Weights sum to at most 1 |
-| `UnitBeta()` | Portfolio beta equals 1 |
-| `ZeroBeta()` | Portfolio beta equals 0 |
+| `FullInvestment()` | Total weights sum to 1 |
+| `ZeroInvestment()` | Active/direct weights sum to 0 |
+| `LongOnly()` | Total weights are nonnegative |
+| `NoBuyingOnMargin()` | Sum of positive total weights is at most 1 |
+| `GrossLeverage(max_leverage=1.0)` | Sum of absolute total weights is at most the finite, positive limit |
+| `UnitBeta()` | Total portfolio beta equals 1 |
+| `ZeroBeta()` | Active/direct portfolio beta equals 0 |
+
+The exported `Constraint` protocol defines the interface for custom constraints. Total-space
+constraints use `h + b` when the dynamic optimizer receives benchmark weights `b`; without a
+benchmark they act on `h` directly. `ZeroInvestment` and `ZeroBeta` always act on the optimization
+variable. `GrossLeverage` rejects booleans, nonnumeric values, nonpositive limits, NaN, and infinities.
+A gross limit of 1.6 permits up to 130% long and 30% short only when net investment is also 1.
+
+The dynamic optimizer maximizes expected alpha under a factor-model risk cap:
+
+```python
+weights = sfo.dynamic_mve_optimizer(
+    ids=barrids,
+    alphas=alphas,
+    factor_exposures=factor_exposures,
+    factor_covariance=factor_covariance,
+    specific_risk=specific_variance,
+    constraints=[sfo.ZeroInvestment(), sfo.LongOnly(), sfo.ZeroBeta()],
+    target_active_risk=0.05,
+    betas=betas,
+    benchmark_weights=benchmark_weights,
+    active_weights=True,
+)
+```
+
+Supply specific **variance**, not standard deviation, to `specific_risk`, in units consistent with
+the factor covariance and annualized risk cap. The output includes `weight`, model-predicted
+`active_risk`, and `gamma` implied by the risk constraint's dual variable. `active_weights=False`
+requires benchmark weights and returns total weights instead of active weights.
+
+Only the supplied constraints impose a mandate. An empty list leaves the dynamic risk cap alone;
+it does not enforce investment, beta neutrality, or long-only holdings, and the cap need not bind.
+The standard optimizer's empty list instead retains its quadratic risk penalty controlled by
+`gamma`. For standalone long-short research, omit benchmark weights (or pass zeros) so total-space
+limits apply directly to the optimized weights. Beta neutrality is selected with `ZeroBeta()`;
+there is no separate boolean beta flag.
 
 ### `sf_quant.backtester`
 
@@ -150,12 +186,22 @@ Run walk-forward backtests that optimize at each rebalance date.
 
 ```python
 import sf_quant.backtester as sfb
+import sf_quant.optimizer as sfo
 
 # Sequential (single core)
 portfolio = sfb.backtest_sequential(data=df, constraints=constraints, gamma=2)
 
 # Parallel (multi-core via Ray)
 portfolio = sfb.backtest_parallel(data=df, constraints=constraints, gamma=2, n_cpus=4)
+
+# Dynamic risk cap; mandates come from the constraint objects
+portfolio = sfb.dynamic_backtest_parallel(
+    data=df,
+    constraints=[sfo.ZeroInvestment(), sfo.LongOnly(), sfo.ZeroBeta()],
+    target_active_risk=0.05,
+    active_weights=True,
+    n_cpus=4,
+)
 ```
 
 ### `sf_quant.performance`
