@@ -6,15 +6,26 @@ internal mathematical and solver details hidden.
 """
 
 from .optimizers import mve_optimizer, dynamic_mve_optimizer
-from .constraints import LongOnly, FullInvestment, ZeroInvestment, NoBuyingOnMargin, UnitBeta, ZeroBeta
+from .constraints import (
+    Constraint,
+    LongOnly,
+    FullInvestment,
+    ZeroInvestment,
+    NoBuyingOnMargin,
+    GrossLeverage,
+    UnitBeta,
+    ZeroBeta,
+)
 
 __all__ = [
     "mve_optimizer",
-    "dynamic_mve_optimizer"
+    "dynamic_mve_optimizer",
+    "Constraint",
     "LongOnly",
     "FullInvestment",
     "ZeroInvestment",
     "NoBuyingOnMargin",
+    "GrossLeverage",
     "UnitBeta",
-    "ZeroBeta"
+    "ZeroBeta",
 ]

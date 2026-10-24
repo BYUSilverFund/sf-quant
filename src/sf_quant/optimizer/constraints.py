@@ -1,7 +1,9 @@
+from functools import partial
+from numbers import Real
 from typing import Protocol
+
 import cvxpy as cp
 import numpy as np
-from functools import partial
 
 
 class Constraint(Protocol):
@@ -9,8 +11,8 @@ class Constraint(Protocol):
     Protocol for portfolio optimization constraints.
 
     Any class implementing this protocol must define a ``__call__`` method
-    that accepts a ``cvxpy.Variable`` representing portfolio weights and
-    returns a ``cvxpy.Constraint``.
+    that accepts a ``cvxpy.Variable`` representing portfolio weights (active
+    or total) and returns a ``cvxpy.Constraint``.
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
@@ -22,7 +24,8 @@ class Constraint(Protocol):
         weights : cp.Variable
             Portfolio weights variable of shape (n_assets,).
         **kwargs
-            Additional keyword arguments for constraint-specific parameters.
+            Additional keyword arguments for constraint-specific parameters
+            (e.g., ``betas``, ``benchmark_weights``).
 
         Returns
         -------
@@ -34,197 +37,146 @@ class Constraint(Protocol):
 
 class FullInvestment(Constraint):
     """
-    Enforces a full-investment constraint.
+    Enforces a full-investment constraint on total portfolio weights.
 
-    This constraint ensures that the sum of all portfolio weights equals 1.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint enforcing full investment.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> from sf_quant.optimizer.constraints import FullInvestment
-    >>> weights = cp.Variable(3)
-    >>> constraint = FullInvestment()(weights)
+    Ensures that the sum of total portfolio weights equals 1:
+    - Total space (no benchmark): :math:`\\mathbf{1}^T w = 1`
+    - Active space (with benchmark): :math:`\\mathbf{1}^T (h + b) = 1`
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
         """Apply the full-investment constraint."""
-        return cp.sum(weights) == 1
+        benchmark_weights: np.ndarray | None = kwargs.get("benchmark_weights")
+        total_weights = (
+            weights if benchmark_weights is None else weights + benchmark_weights
+        )
+        return cp.sum(total_weights) == 1
 
 
 class ZeroInvestment(Constraint):
     """
-    Enforces a zero-investment constraint.
+    Enforces a zero-investment (self-financing / dollar-neutral) constraint.
 
-    This constraint ensures that the sum of all portfolio weights equals 0,
-    representing a market-neutral position.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint enforcing zero investment.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> from sf_quant.optimizer.constraints import ZeroInvestment
-    >>> weights = cp.Variable(3)
-    >>> constraint = ZeroInvestment()(weights)
+    Ensures that the sum of active (or long-short) weights equals 0:
+    :math:`\\mathbf{1}^T h = 0`.
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
         """Apply the zero-investment constraint."""
         return cp.sum(weights) == 0
-    
+
 
 class LongOnly(Constraint):
     """
-    Enforces a long-only constraint.
+    Enforces a long-only constraint on total portfolio weights.
 
-    This constraint ensures that all portfolio weights are non-negative,
-    prohibiting short positions.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint enforcing non-negative weights.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> from sf_quant.optimizer.constraints import LongOnly
-    >>> weights = cp.Variable(3)
-    >>> constraint = LongOnly()(weights)
+    Prohibits outright short positions in the total portfolio:
+    - Total space (no benchmark): :math:`w \\ge 0`
+    - Active space (with benchmark): :math:`h + b \\ge 0 \\iff h \\ge -b`
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
         """Apply the long-only constraint."""
-        return weights >= 0
+        benchmark_weights: np.ndarray | None = kwargs.get("benchmark_weights")
+        total_weights = (
+            weights if benchmark_weights is None else weights + benchmark_weights
+        )
+        return total_weights >= 0
 
 
 class NoBuyingOnMargin(Constraint):
     """
-    Enforces a no-buying-on-margin constraint.
+    Enforces a strict no-buying-on-margin constraint on total portfolio weights.
 
-    This constraint ensures that the total invested capital does not exceed 1,
-    prohibiting leveraged long positions.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint limiting total investment to 1.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> from sf_quant.optimizer.constraints import NoBuyingOnMargin
-    >>> weights = cp.Variable(3)
-    >>> constraint = NoBuyingOnMargin()(weights)
+    Ensures that total long exposure does not exceed 100% of equity,
+    prohibiting the use of borrowed money or short-sale proceeds to fund
+    additional long positions:
+    - Total space (no benchmark): :math:`\\sum_i \\max(w_i, 0) \\le 1`
+    - Active space (with benchmark): :math:`\\sum_i \\max(h_i + b_i, 0) \\le 1`
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
         """Apply the no-buying-on-margin constraint."""
-        return cp.sum(weights) <= 1
+        benchmark_weights: np.ndarray | None = kwargs.get("benchmark_weights")
+        total_weights = (
+            weights if benchmark_weights is None else weights + benchmark_weights
+        )
+        return cp.sum(cp.pos(total_weights)) <= 1.0
+
+
+class GrossLeverage(Constraint):
+    """
+    Constrains total portfolio gross exposure (L1 norm).
+
+    Parameters
+    ----------
+    max_leverage : float, default 1.0
+        The maximum allowed gross exposure (:math:`\\|w\\|_1 = \\sum_i |w_i|`).
+        Must be finite and strictly positive; boolean values are not accepted.
+        - ``1.0`` for an unleveraged portfolio.
+        - ``1.6`` permits up to 130% long and 30% short when net exposure is 100%.
+    """
+
+    def __init__(self, max_leverage: float = 1.0):
+        if isinstance(max_leverage, (bool, np.bool_)) or not isinstance(
+            max_leverage, Real
+        ):
+            raise ValueError(
+                "max_leverage must be a finite, strictly positive real number."
+            )
+        try:
+            limit = float(max_leverage)
+        except (OverflowError, ValueError) as exc:
+            raise ValueError(
+                "max_leverage must be a finite, strictly positive real number."
+            ) from exc
+        if not np.isfinite(limit) or limit <= 0:
+            raise ValueError(
+                "max_leverage must be a finite, strictly positive real number."
+            )
+        self.max_leverage = limit
+
+    def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
+        """Apply the gross-leverage constraint."""
+        benchmark_weights: np.ndarray | None = kwargs.get("benchmark_weights")
+        total_weights = (
+            weights if benchmark_weights is None else weights + benchmark_weights
+        )
+        return cp.norm1(total_weights) <= self.max_leverage
 
 
 class UnitBeta(Constraint):
     """
-    Enforces a unit-beta constraint.
+    Enforces a unit-beta constraint on total portfolio weights.
 
-    This constraint requires the portfolio's exposure to a given beta vector
-    to equal 1. A ``betas`` array must be provided as a keyword argument.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint enforcing unit beta exposure.
-
-    Raises
-    ------
-    ValueError
-        If ``betas`` is not provided in the keyword arguments.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> import numpy as np
-    >>> from sf_quant.optimizer.constraints import UnitBeta
-    >>> weights = cp.Variable(3)
-    >>> betas = np.array([0.5, 1.2, 0.8])
-    >>> constraint = UnitBeta()(weights, betas=betas)
+    Requires the total portfolio's exposure to ``betas`` to equal 1:
+    - Total space (no benchmark): :math:`\\beta^T w = 1`
+    - Active space (with benchmark): :math:`\\beta^T (h + b) = 1`
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
-        """
-        Apply the unit-beta constraint.
-
-        Parameters
-        ----------
-        weights : cp.Variable
-            Portfolio weights variable.
-        **kwargs
-            Must include ``betas`` : np.ndarray
-                Beta exposures for each asset.
-
-        Returns
-        -------
-        cp.Constraint
-            A CVXPY constraint.
-        """
+        """Apply the unit-beta constraint."""
         betas: np.ndarray | None = kwargs.get("betas")
         if betas is None:
             raise ValueError("UnitBeta requires betas")
-        return betas @ weights == 1
-    
+
+        benchmark_weights: np.ndarray | None = kwargs.get("benchmark_weights")
+        total_weights = (
+            weights if benchmark_weights is None else weights + benchmark_weights
+        )
+        return betas @ total_weights == 1
+
+
 class ZeroBeta(Constraint):
     """
-    Enforces a zero-beta constraint.
+    Enforces a zero-beta constraint on active (or market-neutral) weights.
 
-    This constraint requires the portfolio's exposure to a given beta vector
-    to equal 0, creating a market-neutral position. A ``betas`` array must be
-    provided as a keyword argument.
-
-    Returns
-    -------
-    cp.Constraint
-        A CVXPY constraint enforcing zero beta exposure.
-
-    Raises
-    ------
-    ValueError
-        If ``betas`` is not provided in the keyword arguments.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> import numpy as np
-    >>> from sf_quant.optimizer.constraints import ZeroBeta
-    >>> weights = cp.Variable(3)
-    >>> betas = np.array([0.5, 1.2, 0.8])
-    >>> constraint = ZeroBeta()(weights, betas=betas)
+    Requires the active portfolio's exposure to ``betas`` to equal 0:
+    :math:`\\beta^T h = 0`.
     """
 
     def __call__(self, weights: cp.Variable, **kwargs) -> cp.Constraint:
-        """
-        Apply the zero-beta constraint.
-
-        Parameters
-        ----------
-        weights : cp.Variable
-            Portfolio weights variable.
-        **kwargs
-            Must include ``betas`` : np.ndarray
-                Beta exposures for each asset.
-
-        Returns
-        -------
-        cp.Constraint
-            A CVXPY constraint.
-        """
+        """Apply the zero-beta constraint."""
         betas: np.ndarray | None = kwargs.get("betas")
         if betas is None:
             raise ValueError("ZeroBeta requires betas")
@@ -232,35 +184,39 @@ class ZeroBeta(Constraint):
 
 
 def _construct_constraints(
-    constraints: list[Constraint], betas: np.ndarray | None = None
+    constraints: list[Constraint],
+    betas: np.ndarray | None = None,
+    benchmark_weights: np.ndarray | None = None,
 ) -> list:
     """
     Construct a list of partial constraint functions.
 
-    Wraps constraint objects with their required keyword arguments
-    (e.g., ``betas``) to prepare them for application to weight variables.
+    Wraps constraint objects with their required context keyword arguments
+    (``betas`` and ``benchmark_weights``) so they can be evaluated against
+    a ``cvxpy.Variable``.
 
     Parameters
     ----------
     constraints : list[Constraint]
         List of constraint objects implementing the ``Constraint`` protocol.
     betas : np.ndarray, optional
-        Beta exposures required by constraints such as ``UnitBeta`` and ``ZeroBeta``.
+        Asset beta exposures required by ``UnitBeta`` or ``ZeroBeta``.
+    benchmark_weights : np.ndarray, optional
+        Benchmark weights used by total-space constraints (``LongOnly``,
+        ``FullInvestment``, ``NoBuyingOnMargin``, ``GrossLeverage``, ``UnitBeta``)
+        to map active weights ``h`` to total weights ``w = h + b``.
 
     Returns
     -------
     list
-        List of partial constraint functions, each ready to be called with
-        a ``cvxpy.Variable`` to produce a ``cvxpy.Constraint``.
-
-    Examples
-    --------
-    >>> import cvxpy as cp
-    >>> import numpy as np
-    >>> from sf_quant.optimizer.constraints import _construct_constraints, FullInvestment, UnitBeta
-    >>> betas = np.array([0.5, 1.2, 0.8])
-    >>> constraint_partials = _construct_constraints([FullInvestment(), UnitBeta()], betas=betas)
-    >>> weights = cp.Variable(3)
-    >>> cvxpy_constraints = [c(weights) for c in constraint_partials]
+        List of partial constraint functions ready to be called with a
+        ``cvxpy.Variable``.
     """
-    return [partial(constraint, betas=betas) for constraint in constraints]
+    return [
+        partial(
+            constraint,
+            betas=betas,
+            benchmark_weights=benchmark_weights,
+        )
+        for constraint in constraints
+    ]

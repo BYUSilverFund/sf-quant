@@ -1,6 +1,7 @@
 # Archive
 /.archive
 *test*.py
+!/tests/test_optimizer_constraints.py
 
 # Scratch
 *scratch*.py
