@@ -1,4 +1,5 @@
 import polars as pl
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 from sf_quant.data import load_fama_french
@@ -180,42 +181,23 @@ def run_quantile_ff_regression(
             ])
     )
 
-    name_map = {
-        "const": "alpha", "mkt_rf": "beta_mkt", "smb": "beta_smb",
-        "hml": "beta_hml", "rmw": "beta_rmw", "cma": "beta_cma"
-    }
-
-    results = []
+    # Constant last, so rows read factor loadings first and alpha last.
+    design = sm.add_constant(port.select("mkt_rf", "smb", "hml", "rmw", "cma").to_numpy(), prepend=False, has_constant="add")
+    final_df = pl.DataFrame({"feature_names": [*(f"beta_{f}" for f in ("mkt", "smb", "hml", "rmw", "cma")), "alpha"]})
 
     for p in portfolio_names:
-        res = (
-            port.select(
-                pl.col(p).least_squares.ols(
-                    pl.col('mkt_rf', 'smb', 'hml', 'rmw', 'cma'),
-                    mode='statistics',
-                    add_intercept=True
-                ).alias("stats")
-            )
-            .unnest("stats")
-            .explode("feature_names", "coefficients", "t_values") 
-            .with_columns(
-                pl.col("feature_names").replace(name_map)
-            )
-            .select([
-                pl.col("feature_names"),
-                pl.format("{} ({}){}", 
-                    pl.col("coefficients").round(4), 
+        fit = sm.OLS(port[p].to_numpy(), design).fit()
+        stats = pl.DataFrame({"coefficients": fit.params, "t_values": fit.tvalues})
+        final_df = final_df.with_columns(
+            stats.select(
+                pl.format("{} ({}){}",
+                    pl.col("coefficients").round(4),
                     pl.col("t_values").round(2),
                     pl.when(pl.col("t_values").abs() > 2)
                     .then(pl.lit("*"))
                     .otherwise(pl.lit(""))
-                ).alias(p)
-            ])
+                )
+            ).to_series().alias(p)
         )
-        results.append(res)
-
-    final_df = results[0]
-    for other_df in results[1:]:
-        final_df = final_df.join(other_df, on="feature_names", how="left")
 
     return final_df
