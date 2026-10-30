@@ -39,7 +39,9 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     Notes
     -----
     - Asset returns are sourced via ``load_assets``.
-    - Benchmark weights are sourced via ``load_benchmark``.
+    - Benchmark weights are sourced via ``load_benchmark``. Every benchmark
+      name counts, held or not; a name missing from ``weights`` or from the
+      benchmark has weight 0 there.
     - Returns are computed as the weighted sum of returns by portfolio.
     - Weights are matched with returns on the same date, so build them from
       signals lagged one day.
@@ -75,15 +77,21 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     start = weights["date"].min()
     end = weights["date"].max()
 
-    returns = _held_returns(weights["barrid"], start, end)
+    benchmark = load_benchmark(start=start, end=end).filter(
+        pl.col("date").is_in(weights["date"].unique().implode())
+    )
 
-    benchmark = load_benchmark(start=start, end=end)
+    # Full join: a benchmark name the portfolio doesn't hold still counts in the
+    # benchmark (and at minus its weight in active), and a held name outside the
+    # benchmark counts at its full weight in active.
+    positions = weights.join(
+        benchmark, on=["date", "barrid"], how="full", coalesce=True, suffix="_bmk"
+    ).with_columns(pl.col("weight", "weight_bmk").fill_null(0.0))
 
-    returns = returns.sort("barrid", "date")
+    returns = _held_returns(positions["barrid"], start, end).sort("barrid", "date")
 
     joined = (
-        weights.join(returns, on=["date", "barrid"], how="left")
-        .join(benchmark, on=["date", "barrid"], how="left", suffix="_bmk")
+        positions.join(returns, on=["date", "barrid"], how="left")
         .with_columns(
             pl.col("return").truediv(100),
         )
