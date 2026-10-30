@@ -55,7 +55,7 @@ def backtest_sequential(
 
     See Also
     --------
-    backtest_parallel : Parallelized version using Ray for faster execution.
+    backtest_parallel : Parallelized version using a thread pool for faster execution.
     dynamic_backtest_parallel : Parallel version with active risk calibration.
 
     Examples

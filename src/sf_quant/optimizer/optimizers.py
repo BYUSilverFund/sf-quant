@@ -160,7 +160,9 @@ def dynamic_mve_optimizer(
 
     objective = cp.Maximize(alphas @ h)
     problem = cp.Problem(objective, cvxpy_constraints)
-    problem.solve(solver="CLARABEL")
+    # One thread per solve: the parallel backtesters run one solve per worker
+    # thread, and the solver's own auto-threading would oversubscribe the CPUs.
+    problem.solve(solver="CLARABEL", max_threads=1)
 
     if problem.status not in ["optimal", "optimal_inaccurate"]:
         raise ValueError(f"Optimization failed. Status: {problem.status}")

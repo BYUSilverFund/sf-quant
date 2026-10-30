@@ -1,27 +1,25 @@
 import polars as pl
 import os
-import ray
+import tqdm
 import datetime as dt
-from ray.experimental import tqdm_ray
+from concurrent.futures import ThreadPoolExecutor
 from sf_quant.data.covariance_matrix import construct_factor_model_components
 from sf_quant.optimizer.optimizers import mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 from sf_quant.schema.portfolio_schema import PortfolioSchema
 
 
-@ray.remote
 def _construct_portfolio(
     date_: dt.date,
     data: pl.DataFrame,
     constraints: list[Constraint],
     gamma: float,
-    progress_bar: tqdm_ray.tqdm | None = None,
 ):
     """
     Construct a single optimized portfolio for a given date.
 
-    This is a Ray-remote helper function for parallel portfolio construction.
-    It filters data to a specific date, constructs the factor model components,
+    This is a helper function for parallel portfolio construction, run once
+    per date on a worker thread. It filters data to a specific date, constructs the factor model components,
     and solves a mean-variance optimization problem.
 
     Parameters
@@ -34,8 +32,6 @@ def _construct_portfolio(
         Portfolio constraints to enforce.
     gamma : float
         Risk aversion parameter.
-    progress_bar : tqdm_ray.tqdm, optional
-        Ray-based progress bar for tracking completion.
 
     Returns
     -------
@@ -73,9 +69,6 @@ def _construct_portfolio(
         "date", "barrid", "weight"
     )
 
-    if progress_bar is not None:
-        progress_bar.update.remote(1)
-
     return portfolio
 
 
@@ -86,12 +79,12 @@ def backtest_parallel(
     n_cpus: int | None = None,
 ) -> pl.DataFrame:
     """
-    Run a parallelized backtest of portfolio optimization using Ray.
+    Run a parallelized backtest of portfolio optimization using a thread pool.
 
     This function distributes portfolio construction tasks across
-    multiple CPUs with Ray, solving mean–variance optimization problems
-    for each date in parallel. A Ray-based progress bar tracks
-    computation progress.
+    worker threads, solving mean–variance optimization problems
+    for each date in parallel. A progress bar tracks computation
+    progress.
 
     Parameters
     ----------
@@ -109,7 +102,7 @@ def backtest_parallel(
         Risk aversion parameter. Higher values penalize portfolio
         variance more strongly. Default is 2.
     n_cpus : int, optional
-        Number of CPUs to allocate to Ray. If ``None``, defaults to
+        Number of worker threads. If ``None``, defaults to
         ``os.cpu_count()`` but is capped at the number of unique dates.
 
     Returns
@@ -124,9 +117,9 @@ def backtest_parallel(
 
     Notes
     -----
-    - Ray is initialized with ``ignore_reinit_error=True``, allowing safe
-      re-invocation within the same process.
-    - The number of CPUs is automatically limited to the number of unique dates
+    - Threads share the input data, so nothing is copied to the workers. The
+      solvers release the GIL, so the solves run in parallel.
+    - The number of threads is automatically limited to the number of unique dates
       to avoid unnecessary idle workers.
 
     See Also
@@ -182,32 +175,25 @@ def backtest_parallel(
     # Get dates
     dates = data["date"].unique().sort().to_list()
 
-    # Set up ray
     n_cpus = n_cpus or os.cpu_count()
     n_cpus = min(len(dates), n_cpus)
-    ray.init(ignore_reinit_error=True, num_cpus=n_cpus)
 
-    # Set up ray progress bar
-    remote_tqdm = ray.remote(tqdm_ray.tqdm)
-    progress_bar = remote_tqdm.remote(
-        total=len(dates), desc=f"Computing portfolios with {n_cpus} cpus"
-    )
-
-    # Dispatch parallel tasks
-    portfolio_futures = [
-        _construct_portfolio.remote(
-            date_=date_,
-            data=data,
-            constraints=constraints,
-            gamma=gamma,
-            progress_bar=progress_bar,
+    with ThreadPoolExecutor(max_workers=n_cpus) as executor:
+        portfolio_futures = executor.map(
+            lambda date_: _construct_portfolio(
+                date_=date_,
+                data=data,
+                constraints=constraints,
+                gamma=gamma,
+            ),
+            dates,
         )
-        for date_ in dates
-    ]
-
-    portfolio_list = ray.get(portfolio_futures)
-
-    progress_bar.close.remote()
-    ray.shutdown()
+        portfolio_list = list(
+            tqdm.tqdm(
+                portfolio_futures,
+                total=len(dates),
+                desc=f"Computing portfolios with {n_cpus} threads",
+            )
+        )
 
     return PortfolioSchema.validate(pl.concat(portfolio_list))

@@ -1,20 +1,18 @@
 import polars as pl
 import os
-import ray
+import tqdm
 import datetime as dt
-from ray.experimental import tqdm_ray
+from concurrent.futures import ThreadPoolExecutor
 from sf_quant.data.covariance_matrix import construct_factor_model_components
 from sf_quant.optimizer.optimizers import dynamic_mve_optimizer
 from sf_quant.optimizer.constraints import Constraint
 
 
-@ray.remote
 def _construct_portfolio(
     date_: dt.date,
     subset: pl.DataFrame,
     constraints: list[Constraint],
     target_active_risk: float,
-    progress_bar: tqdm_ray.tqdm | None = None,
     active_weights: bool = True,
 ):
     """
@@ -31,8 +29,6 @@ def _construct_portfolio(
         Portfolio constraints to enforce during optimization.
     target_active_risk : float
         Target annualized active risk for dual-variable gamma calibration.
-    progress_bar : tqdm_ray.tqdm, optional
-        Ray-based progress bar for tracking completion across parallel workers.
     active_weights : bool, default True
         True returns pure active weights; False adds benchmark weights back to
         return total portfolio weights.
@@ -87,9 +83,6 @@ def _construct_portfolio(
         "date", "barrid", "weight", "gamma", "active_risk"
     )
 
-    if progress_bar is not None:
-        progress_bar.update.remote(1)
-
     return portfolio
 
 
@@ -101,10 +94,10 @@ def dynamic_backtest_parallel(
     active_weights: bool = True,
 ) -> pl.DataFrame:
     """
-    Run a parallelized backtest of portfolio optimization using Ray.
+    Run a parallelized backtest of portfolio optimization using a thread pool.
 
-    Distributes single-date portfolio construction tasks across multiple CPUs
-    using Ray, solving mean-variance optimization problems in active space with
+    Distributes single-date portfolio construction tasks across worker
+    threads, solving mean-variance optimization problems in active space with
     explicitly supplied ``Constraint`` objects.
 
     Parameters
@@ -130,7 +123,7 @@ def dynamic_backtest_parallel(
     target_active_risk : float, default 0.05
         Target annualized active risk cap (e.g., 0.05 for 5%).
     n_cpus : int, optional
-        Number of CPUs to allocate to Ray. If ``None``, defaults to
+        Number of worker threads. If ``None``, defaults to
         ``os.cpu_count()`` capped at the number of unique dates.
     active_weights : bool, default True
         True (default) outputs active weights :math:`h`. False outputs total
@@ -166,29 +159,24 @@ def dynamic_backtest_parallel(
 
     n_cpus = n_cpus or os.cpu_count() or 1
     n_cpus = min(len(dates), n_cpus)
-    ray.init(ignore_reinit_error=True, num_cpus=n_cpus, runtime_env={})
 
-    try:
-        remote_tqdm = ray.remote(tqdm_ray.tqdm)
-        progress_bar = remote_tqdm.remote(
-            total=len(dates), desc=f"Computing portfolios with {n_cpus} cpus"
-        )
-
-        portfolio_futures = [
-            _construct_portfolio.remote(
+    with ThreadPoolExecutor(max_workers=n_cpus) as executor:
+        portfolio_futures = executor.map(
+            lambda date_: _construct_portfolio(
                 date_=date_,
                 subset=partitions[date_],
                 constraints=constraints,
                 target_active_risk=target_active_risk,
-                progress_bar=progress_bar,
                 active_weights=active_weights,
+            ),
+            dates,
+        )
+        portfolio_list = list(
+            tqdm.tqdm(
+                portfolio_futures,
+                total=len(dates),
+                desc=f"Computing portfolios with {n_cpus} threads",
             )
-            for date_ in dates
-        ]
-
-        portfolio_list = ray.get(portfolio_futures)
-        progress_bar.close.remote()
-    finally:
-        ray.shutdown()
+        )
 
     return pl.concat(portfolio_list)

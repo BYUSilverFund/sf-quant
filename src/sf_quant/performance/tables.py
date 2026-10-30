@@ -5,7 +5,13 @@ from sf_quant.schema.leverage_schema import LeverageSchema
 from sf_quant.schema.drawdown_schema import DrawdownSchema
 
 
-def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide: bool = True) -> pl.DataFrame:
+def generate_multi_returns_summary_table(
+    returns: MultiPortfolioRetSchema,
+    wide: bool = True,
+    *,
+    periods_per_year: float = 252,
+    risk_free: float = 0.0,
+) -> pl.DataFrame:
     """
     Generate a summary statistics table for multiple portfolio returns.
 
@@ -22,11 +28,19 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
 
         - ``date`` (date): The observation date.
         - ``portfolio`` (str): Portfolio name or identifier.
-        - ``return`` (float): Daily portfolio return.
+        - ``return`` (float): Portfolio return per period.
     wide : bool, optional
         If ``True`` (default), return the summary in wide
         format with one row per portfolio. If ``False``, return the summary
         transposed with statistics as rows.
+    periods_per_year : float, optional
+        Return periods per year, used to annualize. Defaults to 252, for daily
+        returns; pass ``252 / N`` for returns held N trading days.
+    risk_free : float, optional
+        Annualized risk-free rate subtracted from every portfolio's mean
+        return except ``"active"`` before computing the Sharpe ratio. Defaults
+        to 0. Passing the sample's average rate gives the exact mean excess
+        return.
 
     Returns
     -------
@@ -37,11 +51,12 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
         **Wide format (default):**
 
         - ``Portfolio`` (str): Portfolio name.
-        - ``Count`` (int): Number of days in the sample.
+        - ``Count`` (int): Number of periods in the sample.
         - ``Mean Return (%)`` (float): Annualized mean return (in percent).
         - ``Volatility (%)`` (float): Annualized volatility (in percent).
         - ``Total Return (%)`` (float): Total return over the period (in percent).
-        - ``Sharpe`` (float): Sharpe ratio.
+        - ``Sharpe`` (float): Sharpe ratio; for ``"active"``, the information
+          ratio.
 
         **Long format (wide=False):**
 
@@ -50,56 +65,43 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
 
     Notes
     -----
-    - Annualization assumes 252 trading days per year.
     - Returns are converted to percentages for readability.
-    - Sharpe ratio is calculated as ``mean_return / volatility``.
+    - Sharpe ratio is ``(mean_return - risk_free) / volatility`` (Student
+      Manual 1.6). The active portfolio is self-financing, so the risk-free
+      rate cancels from its return and its ratio is ``mean_return /
+      volatility``, the information ratio (2.4.1).
 
     Examples
     --------
-    >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
-    >>> summary = sfp.generate_summary_table(returns)
-    >>> summary
-    shape: (3, 6)
-    ┌───────────┬───────┬─────────────────┬────────────────┬──────────────────┬────────┐
-    │ Portfolio ┆ Count ┆ Mean Return (%) ┆ Volatility (%) ┆ Total Return (%) ┆ Sharpe │
-    │ ---       ┆ ---   ┆ ---             ┆ ---            ┆ ---              ┆ ---    │
-    │ str       ┆ u32   ┆ f64             ┆ f64            ┆ f64              ┆ f64    │
-    ╞═══════════╪═══════╪═════════════════╪════════════════╪══════════════════╪════════╡
-    │ Active    ┆ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    │ Benchmark ┆ 2     ┆ -0.0            ┆ 0.0            ┆ -0.0             ┆ -4.01  │
-    │ Total     ┆ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    └───────────┴───────┴─────────────────┴────────────────┴──────────────────┴────────┘
+    >>> returns = sfp.generate_multi_returns_from_weights(weights)   # doctest: +SKIP
+    >>> sfp.generate_multi_returns_summary_table(returns, risk_free=0.02)   # doctest: +SKIP
     """
     summary_wide = (
         returns.group_by("portfolio")
         .agg(
-            pl.col("date").n_unique().alias("n_days"),
+            pl.col("date").n_unique().alias("n_periods"),
             pl.col("return").mean().alias("mean_return"),
             pl.col("return").std().alias("volatility"),
             pl.col("return").add(1).product().sub(1).alias("total_return"),
         )
         .with_columns(
-            pl.col("mean_return").mul(252),
-            pl.col("volatility").mul(pl.lit(252).sqrt()),
+            pl.col("mean_return").mul(periods_per_year),
+            pl.col("volatility").mul(pl.lit(periods_per_year).sqrt()),
         )
-        .with_columns(pl.col("mean_return").truediv("volatility").alias("sharpe"))
+        .with_columns(
+            pl.col("mean_return")
+            .sub(pl.when(pl.col("portfolio") == "active").then(0.0).otherwise(risk_free))
+            .truediv("volatility")
+            .alias("sharpe")
+        )
         .with_columns(pl.col("mean_return", "volatility", "total_return").mul(100))
         .sort("portfolio")
         .with_columns(pl.col("portfolio").str.to_titlecase())
         .rename(
             {
                 "portfolio": "Portfolio",
-                "n_days": "Count",
+                "n_periods": "Count",
                 "mean_return": "Mean Return (%)",
                 "volatility": "Volatility (%)",
                 "total_return": "Total Return (%)",
@@ -124,7 +126,12 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
         )
 
 
-def generate_returns_summary_table(returns: PortfolioRetSchema) -> pl.DataFrame:
+def generate_returns_summary_table(
+    returns: PortfolioRetSchema,
+    *,
+    periods_per_year: float = 252,
+    risk_free: float = 0.0,
+) -> pl.DataFrame:
     """
     Generate a summary statistics table for single portfolio returns.
 
@@ -138,14 +145,22 @@ def generate_returns_summary_table(returns: PortfolioRetSchema) -> pl.DataFrame:
         Must include the following columns:
 
         - ``date`` (date): The observation date.
-        - ``return`` (float): Daily portfolio return.
+        - ``return`` (float): Portfolio return per period.
+    periods_per_year : float, optional
+        Return periods per year, used to annualize. Defaults to 252, for daily
+        returns; pass ``252 / N`` for returns held N trading days.
+    risk_free : float, optional
+        Annualized risk-free rate subtracted from the mean return before
+        computing the Sharpe ratio. Defaults to 0. Leave it at 0 for active
+        returns, whose ratio is then the information ratio. Passing the
+        sample's average rate gives the exact mean excess return.
 
     Returns
     -------
     pl.DataFrame
         A single-row DataFrame containing portfolio summary statistics:
 
-        - ``Count`` (int): Number of days in the sample.
+        - ``Count`` (int): Number of periods in the sample.
         - ``Mean Return (%)`` (float): Annualized mean return (in percent).
         - ``Volatility (%)`` (float): Annualized volatility (in percent).
         - ``Total Return (%)`` (float): Total return over the period (in percent).
@@ -153,43 +168,25 @@ def generate_returns_summary_table(returns: PortfolioRetSchema) -> pl.DataFrame:
 
     Notes
     -----
-    - Annualization assumes 252 trading days per year.
     - Returns are converted to percentages for readability.
-    - Sharpe ratio is calculated as ``mean_return / volatility``.
+    - Sharpe ratio is ``(mean_return - risk_free) / volatility`` (Student
+      Manual 1.6).
 
     Examples
     --------
-    >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
-    >>> summary = sfp.generate_returns_summary_table(returns)
-    >>> summary
-    shape: (1, 5)
-    ┌───────┬─────────────────┬────────────────┬──────────────────┬────────┐
-    │ Count ┆ Mean Return (%) ┆ Volatility (%) ┆ Total Return (%) ┆ Sharpe │
-    │ ---   ┆ ---             ┆ ---            ┆ ---              ┆ ---    │
-    │ u32   ┆ f64             ┆ f64            ┆ f64              ┆ f64    │
-    ╞═══════╪═════════════════╪════════════════╪══════════════════╪════════╡
-    │ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    └───────┴─────────────────┴────────────────┴──────────────────┴────────┘
+    >>> returns = sfp.generate_returns_from_weights(weights)   # doctest: +SKIP
+    >>> sfp.generate_returns_summary_table(returns, risk_free=0.02)   # doctest: +SKIP
     """
     return (
         returns.select(
             pl.col("date").n_unique().alias("Count"),
-            pl.col("return").mean().mul(252).alias("Mean Return (%)"),
-            pl.col("return").std().mul(pl.lit(252).sqrt()).alias("Volatility (%)"),
+            pl.col("return").mean().mul(periods_per_year).alias("Mean Return (%)"),
+            pl.col("return").std().mul(pl.lit(periods_per_year).sqrt()).alias("Volatility (%)"),
             pl.col("return").add(1).product().sub(1).mul(100).alias("Total Return (%)"),
         )
         .with_columns(
-            pl.col("Mean Return (%)").truediv("Volatility (%)").alias("Sharpe")
+            pl.col("Mean Return (%)").sub(risk_free).truediv("Volatility (%)").alias("Sharpe")
         )
         .with_columns(
             pl.col("Mean Return (%)", "Volatility (%)").mul(100)

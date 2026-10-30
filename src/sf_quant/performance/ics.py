@@ -53,8 +53,9 @@ def generate_alpha_ics(
 
     Notes
     -----
-    - The function first shifts alpha values by one day per asset to align with
-      the next day's realized return.
+    - Alphas are matched with returns starting on the same date: an alpha dated
+      t is scored on the return compounded over t..t+window-1. Pass alphas
+      already lagged one day (built from data through t-1).
     - Observations with null or non-finite alpha or return values are excluded.
     - Spearman IC is computed by ranking alpha and return values within each date
       and then calculating the Pearson correlation of ranks.
