@@ -191,7 +191,7 @@ import sf_quant.optimizer as sfo
 # Sequential (single core)
 portfolio = sfb.backtest_sequential(data=df, constraints=constraints, gamma=2)
 
-# Parallel (multi-core via Ray)
+# Parallel (multi-core via a thread pool)
 portfolio = sfb.backtest_parallel(data=df, constraints=constraints, gamma=2, n_cpus=4)
 
 # Dynamic risk cap; mandates come from the constraint objects
