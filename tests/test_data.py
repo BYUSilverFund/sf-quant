@@ -6,8 +6,10 @@ import numpy as np
 import polars as pl
 import pytest
 
+import sf_quant.data as sfd
 import sf_quant.data.covariance_matrix as cov_module
 from sf_quant.data._factors import factors
+from sf_quant.data._tables import Table
 
 
 BARRIDS = ["USA0001", "USA0002", "USA0003"]
@@ -63,3 +65,16 @@ def test_a_barrid_without_risk_data_raises(monkeypatch, missing_from):
 
     with pytest.raises(ValueError, match=f"{missing_from} missing for 1 of 3 barrids.*USA0003"):
         cov_module.construct_factor_model_components(date, BARRIDS)
+
+
+def test_column_listings_restore_the_callers_row_setting(monkeypatch):
+    import sf_quant.data.fama_french as ff_module
+
+    schema = {"date": pl.Date, "barrid": pl.String}
+    monkeypatch.setattr(Table, "scan", lambda self, year=None: pl.LazyFrame(schema=schema))
+    monkeypatch.setattr(ff_module, "fama_french", lambda: pl.LazyFrame(schema=schema))
+
+    with pl.Config(tbl_rows=25):
+        for listing in (sfd.get_assets_columns, sfd.get_fama_french_columns):
+            assert "barrid" in listing()
+            assert pl.Config.state(if_set=True)["POLARS_FMT_MAX_ROWS"] == "25"
