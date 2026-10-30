@@ -1,5 +1,5 @@
 import polars as pl
-from sf_quant.data.assets import load_assets
+from sf_quant.data._tables import assets_table
 from sf_quant.data.benchmark import load_benchmark
 from sf_quant.schema.portfolio_schema import PortfolioSchema
 from sf_quant.schema.returns_schema import PortfolioRetSchema, MultiPortfolioRetSchema
@@ -75,9 +75,7 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     start = weights["date"].min()
     end = weights["date"].max()
 
-    columns = ["date", "barrid", "return"]
-
-    returns = load_assets(start=start, end=end, in_universe=True, columns=columns)
+    returns = _held_returns(weights["barrid"], start, end)
 
     benchmark = load_benchmark(start=start, end=end)
 
@@ -170,9 +168,7 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
     start = weights["date"].min()
     end = weights["date"].max()
 
-    columns = ["date", "barrid", "return"]
-
-    returns = load_assets(start=start, end=end, in_universe=True, columns=columns)
+    returns = _held_returns(weights["barrid"], start, end)
 
     returns = returns.sort("barrid", "date")
 
@@ -191,3 +187,22 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         .sort("date")
     )
     return PortfolioRetSchema.validate(result)
+
+
+def _held_returns(barrids: pl.Series, start, end) -> pl.DataFrame:
+    """
+    Daily returns of the given names, whether or not they're in the universe.
+
+    A held name earns its return even on a day it isn't flagged in the
+    universe, e.g. after leaving the Russell indexes. Only the given names are
+    read, filtered while the files are scanned.
+    """
+    return (
+        assets_table.scan()
+        .filter(
+            pl.col("date").is_between(start, end),
+            pl.col("barrid").is_in(barrids.unique().implode()),
+        )
+        .select("date", "barrid", "return")
+        .collect()
+    )
