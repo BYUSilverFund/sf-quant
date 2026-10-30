@@ -30,4 +30,5 @@ dev = [
     "pydata-sphinx-theme>=0.16.1",
     "ruff>=0.15.0",
     "ipykernel>=7.1.0",
+    "pytest>=8.4.0",
 ]
