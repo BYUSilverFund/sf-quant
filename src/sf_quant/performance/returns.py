@@ -41,6 +41,8 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     - Asset returns are sourced via ``load_assets``.
     - Benchmark weights are sourced via ``load_benchmark``.
     - Returns are computed as the weighted sum of returns by portfolio.
+    - Weights are matched with returns on the same date, so build them from
+      signals lagged one day.
 
     Examples
     --------
@@ -138,6 +140,8 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
     -----
     - Asset returns are sourced via ``load_assets``.
     - Returns are computed as the weighted sum of returns by portfolio.
+    - Weights are matched with returns on the same date, so build them from
+      signals lagged one day.
 
     Examples
     --------
