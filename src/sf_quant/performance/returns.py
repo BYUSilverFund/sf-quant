@@ -30,81 +30,42 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
         A validated DataFrame containing portfolio returns with the
         following columns:
 
-        - ``date`` (date): The observation date.
+        - ``date`` (date): The formation date that opened the period.
         - ``portfolio`` (str): Portfolio type; one of
           ``"total"``, ``"benchmark"``, or ``"active"``.
-        - ``return`` (float): The weighted return for the portfolio
-          on the given date.
+        - ``return`` (float): The portfolio's return over the period.
 
     Notes
     -----
     - Asset returns are sourced via ``load_assets``.
-    - Benchmark weights are sourced via ``load_benchmark``.
-    - Returns are computed as the weighted sum of returns by portfolio.
+    - Benchmark weights are sourced via ``load_benchmark``, on each formation
+      date.
+    - Each row is the return earned after its formation date, never on it:
+      a portfolio formed at :math:`t_k` earns each asset's return compounded
+      over :math:`(t_k, t_{k+1}]`. A K-date grid gives K-1 rows per portfolio.
 
     Examples
     --------
-    >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_multi_returns_from_weights(weights)
-    >>> returns
-    shape: (6, 3)
-    ┌────────────┬───────────┬────────────┐
-    │ date       ┆ portfolio ┆ return     │
-    │ ---        ┆ ---       ┆ ---        │
-    │ date       ┆ str       ┆ f64        │
-    ╞════════════╪═══════════╪════════════╡
-    │ 2024-01-02 ┆ active    ┆ 0.015432   │
-    │ 2024-01-02 ┆ benchmark ┆ 1.2047e-7  │
-    │ 2024-01-02 ┆ total     ┆ 0.015432   │
-    │ 2024-01-03 ┆ active    ┆ 0.020741   │
-    │ 2024-01-03 ┆ benchmark ┆ 2.4094e-7  │
-    │ 2024-01-03 ┆ total     ┆ 0.020741   │
-    └────────────┴───────────┴────────────┘
+    >>> returns = sfp.generate_multi_returns_from_weights(weights)   # doctest: +SKIP
     """
     start = weights["date"].min()
     end = weights["date"].max()
 
-    columns = ["date", "barrid", "return"]
-
-    returns = load_assets(start=start, end=end, in_universe=True, columns=columns)
-
     benchmark = load_benchmark(start=start, end=end)
 
-    returns = returns.sort("barrid", "date")
-
-    joined = (
-        weights.join(returns, on=["date", "barrid"], how="left")
-        .join(benchmark, on=["date", "barrid"], how="left", suffix="_bmk")
-        .with_columns(
-            pl.col("return").truediv(100),
-        )
+    stacked = (
+        weights.join(benchmark, on=["date", "barrid"], how="left", suffix="_bmk")
         .with_columns(pl.col("weight").sub("weight_bmk").alias("weight_act"))
         .rename({"weight": "total", "weight_bmk": "benchmark", "weight_act": "active"})
         .unpivot(
-            index=["date", "barrid", "return"],
+            index=["date", "barrid"],
             variable_name="portfolio",
             value_name="weight",
         )
     )
 
-    # Build aggregation expressions
-    agg_exprs = []
-    agg_exprs.append(pl.col("return").mul("weight").sum().alias("return"))
-
-    result = (
-        joined.group_by("date", "portfolio")
-        .agg(agg_exprs)
-        .sort("date", "portfolio")
-    )
+    result = _earn(stacked, _period_returns(weights), "weight", by=("portfolio",))
     return MultiPortfolioRetSchema.validate(result)
 
 
@@ -131,59 +92,95 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         A validated DataFrame containing portfolio returns with the
         following columns:
 
-        - ``date`` (date): The observation date.
-        - ``return`` (float): The weighted return for the portfolio on the given date.
+        - ``date`` (date): The formation date that opened the period.
+        - ``return`` (float): The portfolio's return over the period.
 
     Notes
     -----
     - Asset returns are sourced via ``load_assets``.
-    - Returns are computed as the weighted sum of returns by portfolio.
+    - Each row is the return earned after its formation date, never on it:
+      a portfolio formed at :math:`t_k` earns each asset's return compounded
+      over :math:`(t_k, t_{k+1}]`. A K-date grid gives K-1 rows.
 
     Examples
     --------
-    >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
-    >>> returns
-    shape: (2, 2)
-    ┌────────────┬────────────┐
-    │ date       ┆ return     │
-    │ ---        ┆ ---        │
-    │ date       ┆ f64        │
-    ╞════════════╪════════════╡
-    │ 2024-01-02 ┆ 0.015432   │
-    │ 2024-01-03 ┆ 0.020741   │
-    └────────────┴────────────┘
+    >>> returns = sfp.generate_returns_from_weights(weights)   # doctest: +SKIP
     """
-    start = weights["date"].min()
-    end = weights["date"].max()
-
-    columns = ["date", "barrid", "return"]
-
-    returns = load_assets(start=start, end=end, in_universe=True, columns=columns)
-
-    returns = returns.sort("barrid", "date")
-
-    joined = (
-        weights.join(returns, on=["date", "barrid"], how="left")
-        .with_columns(
-            pl.col("return").truediv(100),
-        )
-    )
-
-    result = (
-        joined.group_by("date")
-        .agg([
-            pl.col("return").mul("weight").sum().alias("return"),
-        ])
-        .sort("date")
-    )
+    result = _earn(weights, _period_returns(weights), "weight")
     return PortfolioRetSchema.validate(result)
+
+
+def _period_returns(weights: pl.DataFrame) -> pl.DataFrame:
+    """Each asset's compounded return over every holding period on the grid.
+
+    Keyed by ``form_date``, the formation date that opened the period. A period
+    runs from the day after its formation date through the next formation date,
+    so a portfolio never earns the return of the day it was built: that return
+    is already known when the weights are formed. A name with no observations
+    in a period contributes nothing.
+    """
+    formation_dates = weights["date"].unique().sort()
+    if formation_dates.len() < 2:
+        raise ValueError(
+            "need at least two rebalance dates to measure one holding period, got "
+            f"{formation_dates.len()}"
+        )
+
+    daily = (
+        load_assets(
+            start=formation_dates.min(),
+            end=formation_dates.max(),
+            columns=["date", "barrid", "return"],
+            in_universe=True,
+        )
+        .with_columns(pl.col("return").truediv(100))
+        .drop_nulls("return")
+    )
+
+    calendar = pl.DataFrame({"date": daily["date"].unique().sort()}).with_row_index("t")
+
+    # Each trading day belongs to the period opened by the most recent formation
+    # date *strictly* before it. Matching against the day after each formation
+    # date is what makes the backward join strict: a formation date's own return
+    # closes the previous period rather than opening its own.
+    opens = calendar.filter(pl.col("date").is_in(formation_dates.implode())).select(
+        (pl.col("t") + 1).alias("t_open"), pl.col("date").alias("form_date")
+    )
+
+    buckets = (
+        calendar.join_asof(opens, left_on="t", right_on="t_open", strategy="backward")
+        .drop_nulls("form_date")
+        .select("date", "form_date")
+    )
+
+    return (
+        daily.join(buckets, on="date", how="inner")
+        .group_by("form_date", "barrid")
+        .agg(pl.col("return").add(1).product().sub(1).alias("return"))
+    )
+
+
+def _earn(
+    weights: pl.DataFrame, period_returns: pl.DataFrame, weight: str, by: tuple[str, ...] = ()
+) -> pl.DataFrame:
+    """Sum of weight times period return per formation date (and per ``by``)."""
+    return (
+        weights.filter(
+            pl.col("date").is_in(period_returns["form_date"].unique().implode())
+        )
+        .join(
+            period_returns,
+            left_on=["date", "barrid"],
+            right_on=["form_date", "barrid"],
+            how="left",
+        )
+        .group_by("date", *by)
+        .agg(
+            pl.col(weight)
+            .mul(pl.col("return").fill_null(0.0))
+            .sum()
+            .alias("return")
+        )
+        .sort("date", *by)
+    )
