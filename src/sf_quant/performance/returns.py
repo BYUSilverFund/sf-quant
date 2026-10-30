@@ -88,13 +88,10 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
         benchmark, on=["date", "barrid"], how="full", coalesce=True, suffix="_bmk"
     ).with_columns(pl.col("weight", "weight_bmk").fill_null(0.0))
 
-    returns = _held_returns(positions["barrid"], start, end).sort("barrid", "date")
+    returns = _period_returns(positions["barrid"], weights["date"])
 
     joined = (
         positions.join(returns, on=["date", "barrid"], how="left")
-        .with_columns(
-            pl.col("return").truediv(100),
-        )
         .with_columns(pl.col("weight").sub("weight_bmk").alias("weight_act"))
         .rename({"weight": "total", "weight_bmk": "benchmark", "weight_act": "active"})
         .unpivot(
@@ -173,19 +170,9 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
     │ 2024-01-03 ┆ 0.020741   │
     └────────────┴────────────┘
     """
-    start = weights["date"].min()
-    end = weights["date"].max()
+    returns = _period_returns(weights["barrid"], weights["date"])
 
-    returns = _held_returns(weights["barrid"], start, end)
-
-    returns = returns.sort("barrid", "date")
-
-    joined = (
-        weights.join(returns, on=["date", "barrid"], how="left")
-        .with_columns(
-            pl.col("return").truediv(100),
-        )
-    )
+    joined = weights.join(returns, on=["date", "barrid"], how="left")
 
     result = (
         joined.group_by("date")
@@ -195,6 +182,36 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         .sort("date")
     )
     return PortfolioRetSchema.validate(result)
+
+
+def _period_returns(barrids: pl.Series, dates: pl.Series) -> pl.DataFrame:
+    """
+    Each name's return over the holding period that starts on each weight date.
+
+    Weights dated t_k are held from t_k through the day before the next weight
+    date, so their return compounds every trading day in that span; the last
+    weight date's period is that day alone. With weights on every trading day
+    each period is one day, the plain daily return. Keyed by ``date``, the
+    weight date that opens the period, in decimal.
+    """
+    formation = pl.DataFrame({"date": dates.unique().sort()})
+    daily = (
+        _held_returns(barrids, formation["date"].min(), formation["date"].max())
+        .drop_nulls("return")
+        .with_columns(pl.col("return").truediv(100))
+    )
+    calendar = daily.select("date").unique().sort("date")
+    periods = calendar.join_asof(
+        formation.with_columns(pl.col("date").alias("form_date")),
+        on="date",
+        strategy="backward",
+    )
+    return (
+        daily.join(periods, on="date", how="inner")
+        .group_by("form_date", "barrid")
+        .agg(pl.col("return").add(1).product().sub(1))
+        .rename({"form_date": "date"})
+    )
 
 
 def _held_returns(barrids: pl.Series, start, end) -> pl.DataFrame:

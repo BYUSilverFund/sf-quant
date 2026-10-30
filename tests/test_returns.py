@@ -71,3 +71,11 @@ def test_held_names_outside_the_benchmark_count_in_active(monkeypatch):
     by_portfolio = dict(zip(out["portfolio"], out["return"]))
     assert by_portfolio["total"] == pytest.approx(0.0)
     assert by_portfolio["active"] == pytest.approx(0.0 - 0.01)
+
+
+def test_weights_earn_every_day_until_the_next_rebalance():
+    """Rebalanced on DATES[0] and DATES[2]: the first weights earn days 0 and 1."""
+    weights = pl.DataFrame({"date": [DATES[0], DATES[2]], "barrid": ["A", "A"], "weight": [1.0, 1.0]})
+    out = generate_returns_from_weights(weights)
+    assert out["date"].to_list() == [DATES[0], DATES[2]]
+    assert out["return"].to_list() == pytest.approx([1.01 * 1.02 - 1, 0.03])
