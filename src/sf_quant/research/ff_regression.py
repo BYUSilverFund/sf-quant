@@ -1,5 +1,5 @@
 import polars as pl
-import statsmodels.formula.api as smf
+import statsmodels.api as sm
 
 from sf_quant.data import load_fama_french
 from sf_quant.schema.returns_schema import PortfolioRetSchema
@@ -7,13 +7,21 @@ from sf_quant.schema.returns_schema import PortfolioRetSchema
 
 def run_ff_regression(
     portfolio_returns: PortfolioRetSchema,
+    *,
+    return_timing: str = "formation",
+    active_returns: bool = False,
 ) -> pl.DataFrame:
     """
     Run a Fama-French 5-factor regression on a single portfolio's returns.
 
     Regresses portfolio excess returns (return minus risk-free rate) against
-    the Fama-French 5 factors using OLS. Factors are shifted by -1 day so
-    that today's return is explained by yesterday's factor realizations.
+    the Fama-French 5 factors using OLS. The legacy formation-date mode moves
+    next-session factor values onto the formation date. Realization-date mode
+    joins factors on the actual return date without a shift.
+
+    Use return_timing="realization" for simulator returns. Set active_returns=True
+    for total-minus-benchmark returns, which must not have RF subtracted again.
+    Defaults retain the legacy formation-date behavior.
 
     Parameters
     ----------
@@ -62,30 +70,39 @@ def run_ff_regression(
     │ cma       ┆ -0.0321     ┆ -0.612  │
     └───────────┴─────────────┴─────────┘
     """
+    if return_timing not in ("formation", "realization"):
+        raise ValueError("return_timing must be formation or realization")
     start = portfolio_returns["date"].min()
     end = portfolio_returns["date"].max()
 
     ff5 = (
         load_fama_french(start=start, end=end)
         .sort("date")
-        .with_columns(pl.exclude("date").shift(-1))
     )
+
+    if return_timing == "formation":
+        ff5 = ff5.with_columns(pl.exclude("date").shift(-1))
 
     regression_data = (
         portfolio_returns.join(ff5, on="date", how="left")
         .drop_nulls("return")
-        .with_columns(pl.col("return").sub(pl.col("rf")).alias("return_rf"))
+        .with_columns((pl.col("return") if active_returns else pl.col("return") - pl.col("rf")).alias("return_rf"))
         .with_columns(pl.exclude("date").mul(100))
     )
 
-    formula = "return_rf ~ mkt_rf + smb + hml + rmw + cma"
-    results = smf.ols(formula, regression_data).fit()
+    factors = ["mkt_rf", "smb", "hml", "rmw", "cma"]
+    regression_data = regression_data.filter(
+        pl.all_horizontal(pl.col("return_rf", *factors).is_finite())
+    )
+    # NumPy OLS avoids an implicit Polars -> pandas -> PyArrow dependency.
+    x = sm.add_constant(regression_data.select(factors).to_numpy(), has_constant="add")
+    results = sm.OLS(regression_data["return_rf"].to_numpy(), x).fit()
 
     return pl.DataFrame(
         {
-            "variable": results.params.index.tolist(),
-            "coefficient": results.params.values.tolist(),
-            "tstat": results.tvalues.values.tolist(),
+            "variable": ["Intercept", *factors],
+            "coefficient": results.params.tolist(),
+            "tstat": results.tvalues.tolist(),
         }
     )
 

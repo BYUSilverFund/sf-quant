@@ -255,3 +255,5 @@ uv run sphinx-autobuild docs docs/_build/html
 6. Create a release and publish release notes (github)
 7. uv build
 8. uv publish
+
+Drift-aware execution: see [DRIFT_AWARE.md](DRIFT_AWARE.md).

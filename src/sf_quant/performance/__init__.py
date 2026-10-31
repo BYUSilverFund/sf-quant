@@ -6,6 +6,7 @@ internal computation details hidden.
 """
 
 from .returns import generate_returns_from_weights, generate_multi_returns_from_weights
+from sf_quant.simulation import SimulationConfig, SimulationResult, simulate_portfolio
 from .leverage import generate_leverage_from_weights
 from .drawdown import generate_drawdown_from_returns
 from .tables import (
@@ -27,9 +28,11 @@ from .ics import (
 from .turnover import (
     get_turnover_stats,
     plot_turnover,
+    get_trade_turnover_stats,
 )
 
 __all__ = [
+    "SimulationConfig", "SimulationResult", "simulate_portfolio", "get_trade_turnover_stats",
     # Returns
     "generate_returns_from_weights",
     "generate_multi_returns_from_weights",

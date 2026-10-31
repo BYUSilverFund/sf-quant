@@ -5,6 +5,20 @@ import matplotlib.pyplot as plt
 from sf_quant.performance.leverage import generate_leverage_from_weights
 
 
+def get_trade_turnover_stats(daily: pl.DataFrame) -> pl.DataFrame:
+    """Summarize simulator turnover, including zero-trade sessions and inception.
+
+    Two-sided = sum(abs(executed security dollars)) / pre-trade NAV.
+    One-way = half two-sided; cash trades are excluded. No leverage normalization
+    or rolling warm-up. Costs use bps times the same absolute traded dollars.
+    """
+    return daily.select(
+        pl.col("two_sided_turnover").mean().alias("Mean Turnover"),
+        pl.col("two_sided_turnover").min().alias("Min Turnover"),
+        pl.col("two_sided_turnover").max().alias("Max Turnover"),
+    )
+
+
 def _compute_turnover(weights: pl.DataFrame) -> pl.DataFrame:
     # Generate leverage from weights
     leverage = generate_leverage_from_weights(weights)

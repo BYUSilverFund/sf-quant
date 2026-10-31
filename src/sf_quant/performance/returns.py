@@ -1,3 +1,9 @@
+"""Legacy same-date target-weight arithmetic, without holdings simulation.
+
+For execution accounting use sf_quant.simulation.simulate_portfolio and its
+returns()/multi_returns() adapters. These legacy functions deliberately retain
+their historical alignment, filtering, and null-handling behavior.
+"""
 import polars as pl
 from sf_quant.data.assets import load_assets
 from sf_quant.data.benchmark import load_benchmark
