@@ -206,12 +206,19 @@ portfolio = sfb.dynamic_backtest_parallel(
 
 ### `sf_quant.performance`
 
-Compute and visualize portfolio performance metrics.
+Compute and visualize portfolio performance metrics using realized simulator returns.
+
+**Migration required:** `generate_returns_from_weights` and
+`generate_multi_returns_from_weights` have been removed. They ignore portfolio
+drift. Use `simulate_portfolio` from `sf_quant.simulation`, then
+`result.returns("total")` or `result.multi_returns()`. The explicit `legacy_`
+functions are archived calculations that emit runtime warnings and must not be
+used for portfolio backtests. See [DRIFT_AWARE.md](DRIFT_AWARE.md).
 
 | Function | Description |
 |---|---|
-| `generate_returns_from_weights()` | Portfolio returns from weight history |
-| `generate_multi_returns_from_weights()` | Total, benchmark, and active returns |
+| `sf_quant.simulation.simulate_portfolio()` | Execute target portfolios with drift and NAV accounting |
+| `result.returns("total")` / `result.multi_returns()` | Realized returns for performance analytics |
 | `generate_leverage_from_weights()` | Sum of absolute weights over time |
 | `generate_drawdown_from_returns()` | Drawdown from peak |
 | `generate_returns_summary_table()` | Mean return, volatility, Sharpe, total return |

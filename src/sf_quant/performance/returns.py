@@ -1,81 +1,38 @@
-"""Legacy same-date target-weight arithmetic, without holdings simulation.
+"""Archived weight arithmetic. All portfolio backtests must use simulation.
 
-For execution accounting use sf_quant.simulation.simulate_portfolio and its
-returns()/multi_returns() adapters. These legacy functions deliberately retain
-their historical alignment, filtering, and null-handling behavior.
+Use sf_quant.simulation.simulate_portfolio and result.returns()/multi_returns().
+The former public function names have been removed, with no callable aliases.
 """
+import warnings
+
 import polars as pl
 from sf_quant.data.assets import load_assets
 from sf_quant.data.benchmark import load_benchmark
 from sf_quant.schema.portfolio_schema import PortfolioSchema
 from sf_quant.schema.returns_schema import PortfolioRetSchema, MultiPortfolioRetSchema
 
+LEGACY_RETURN_WARNING = 'NOTE this does not calculate correct returns, as it ignores portfolio drift. Do not use it. Use simulate_portfolio in sf_quant.simulation instead.'
 
-def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfolioRetSchema:
+# Retired public API (intentionally commented out):
+# def generate_returns_from_weights(weights):
+#     """NOTE this does not calculate correct returns, as it ignores portfolio drift. Do not use it. Use simulate_portfolio in sf_quant.simulation instead."""
+
+# Retired public API (intentionally commented out):
+# def generate_multi_returns_from_weights(weights):
+#     """NOTE this does not calculate correct returns, as it ignores portfolio drift. Do not use it. Use simulate_portfolio in sf_quant.simulation instead."""
+
+def legacy_generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfolioRetSchema:
+    """NOTE this does not calculate correct returns, as it ignores portfolio drift. Do not use it. Use simulate_portfolio in sf_quant.simulation instead.
+
+    Archived same-date weighted-return arithmetic for reproducing legacy results
+    only. This function does not simulate holdings, drift, execution timing, cash,
+    or transaction costs. Never use it to evaluate a new portfolio backtest.
     """
-    Generate portfolio, benchmark, and active returns from given portfolio weights.
-
-    This function calculates returns by joining provided portfolio weights with
-    asset returns and benchmark weights. It derives total, benchmark, and
-    active portfolio weights, then computes weighted returns for each
-    portfolio type over time.
-
-    Parameters
-    ----------
-    weights : PortfolioSchema
-        Portfolio weights validated against PortfolioSchema.
-        Must include the following columns:
-
-        - ``date`` (date): The date for each weight.
-        - ``barrid`` (str): The unique asset identifier.
-        - ``weight`` (float): The portfolio weight assigned to the asset.
-
-    Returns
-    -------
-    MultiPortfolioRetSchema
-        A validated DataFrame containing portfolio returns with the
-        following columns:
-
-        - ``date`` (date): The observation date.
-        - ``portfolio`` (str): Portfolio type; one of
-          ``"total"``, ``"benchmark"``, or ``"active"``.
-        - ``return`` (float): The weighted return for the portfolio
-          on the given date.
-
-    Notes
-    -----
-    - Asset returns are sourced via ``load_assets``.
-    - Benchmark weights are sourced via ``load_benchmark``.
-    - Returns are computed as the weighted sum of returns by portfolio.
-
-    Examples
-    --------
-    >>> import polars as pl
-    >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_multi_returns_from_weights(weights)
-    >>> returns
-    shape: (6, 3)
-    ┌────────────┬───────────┬────────────┐
-    │ date       ┆ portfolio ┆ return     │
-    │ ---        ┆ ---       ┆ ---        │
-    │ date       ┆ str       ┆ f64        │
-    ╞════════════╪═══════════╪════════════╡
-    │ 2024-01-02 ┆ active    ┆ 0.015432   │
-    │ 2024-01-02 ┆ benchmark ┆ 1.2047e-7  │
-    │ 2024-01-02 ┆ total     ┆ 0.015432   │
-    │ 2024-01-03 ┆ active    ┆ 0.020741   │
-    │ 2024-01-03 ┆ benchmark ┆ 2.4094e-7  │
-    │ 2024-01-03 ┆ total     ┆ 0.020741   │
-    └────────────┴───────────┴────────────┘
-    """
+    warnings.warn(
+        LEGACY_RETURN_WARNING,
+        RuntimeWarning,
+        stacklevel=2,
+    )
     start = weights["date"].min()
     end = weights["date"].max()
 
@@ -114,61 +71,18 @@ def generate_multi_returns_from_weights(weights: PortfolioSchema) -> MultiPortfo
     return MultiPortfolioRetSchema.validate(result)
 
 
-def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchema:
+def legacy_generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchema:
+    """NOTE this does not calculate correct returns, as it ignores portfolio drift. Do not use it. Use simulate_portfolio in sf_quant.simulation instead.
+
+    Archived same-date weighted-return arithmetic for reproducing legacy results
+    only. This function does not simulate holdings, drift, execution timing, cash,
+    or transaction costs. Never use it to evaluate a new portfolio backtest.
     """
-    Generate portfolio returns from given portfolio weights.
-
-    This function calculates returns by joining provided portfolio weights with
-    asset returns, computing weighted returns over time.
-
-    Parameters
-    ----------
-    weights : PortfolioSchema
-        Portfolio weights validated against PortfolioSchema.
-        Must include the following columns:
-
-        - ``date`` (date): The date for each weight.
-        - ``barrid`` (str): The unique asset identifier.
-        - ``weight`` (float): The portfolio weight assigned to the asset.
-
-    Returns
-    -------
-    PortfolioRetSchema
-        A validated DataFrame containing portfolio returns with the
-        following columns:
-
-        - ``date`` (date): The observation date.
-        - ``return`` (float): The weighted return for the portfolio on the given date.
-
-    Notes
-    -----
-    - Asset returns are sourced via ``load_assets``.
-    - Returns are computed as the weighted sum of returns by portfolio.
-
-    Examples
-    --------
-    >>> import polars as pl
-    >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
-    >>> returns
-    shape: (2, 2)
-    ┌────────────┬────────────┐
-    │ date       ┆ return     │
-    │ ---        ┆ ---        │
-    │ date       ┆ f64        │
-    ╞════════════╪════════════╡
-    │ 2024-01-02 ┆ 0.015432   │
-    │ 2024-01-03 ┆ 0.020741   │
-    └────────────┴────────────┘
-    """
+    warnings.warn(
+        LEGACY_RETURN_WARNING,
+        RuntimeWarning,
+        stacklevel=2,
+    )
     start = weights["date"].min()
     end = weights["date"].max()
 
@@ -193,3 +107,12 @@ def generate_returns_from_weights(weights: PortfolioSchema) -> PortfolioRetSchem
         .sort("date")
     )
     return PortfolioRetSchema.validate(result)
+
+
+def __getattr__(name):
+    if name in ("generate_returns_from_weights", "generate_multi_returns_from_weights"):
+        raise AttributeError(
+            f"{name} has been retired because it ignores portfolio drift. "
+            "Use simulate_portfolio in sf_quant.simulation instead."
+        )
+    raise AttributeError(name)

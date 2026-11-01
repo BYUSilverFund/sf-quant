@@ -5,7 +5,7 @@ calculating returns, risk metrics, and visualizing performance, while keeping
 internal computation details hidden.
 """
 
-from .returns import generate_returns_from_weights, generate_multi_returns_from_weights
+from .returns import legacy_generate_returns_from_weights, legacy_generate_multi_returns_from_weights
 from sf_quant.simulation import SimulationConfig, SimulationResult, simulate_portfolio
 from .leverage import generate_leverage_from_weights
 from .drawdown import generate_drawdown_from_returns
@@ -34,8 +34,8 @@ from .turnover import (
 __all__ = [
     "SimulationConfig", "SimulationResult", "simulate_portfolio", "get_trade_turnover_stats",
     # Returns
-    "generate_returns_from_weights",
-    "generate_multi_returns_from_weights",
+    "legacy_generate_returns_from_weights",
+    "legacy_generate_multi_returns_from_weights",
     # Leverage
     "generate_leverage_from_weights",
     # Drawdown
@@ -57,3 +57,12 @@ __all__ = [
     "get_turnover_stats",
     "plot_turnover",
 ]
+
+
+def __getattr__(name):
+    if name in ("generate_returns_from_weights", "generate_multi_returns_from_weights"):
+        raise AttributeError(
+            f"{name} has been retired because it ignores portfolio drift. "
+            "Use simulate_portfolio in sf_quant.simulation instead."
+        )
+    raise AttributeError(name)

@@ -6,14 +6,24 @@ Performance
    :no-undoc-members:
    :no-imported-members:
 
+.. warning::
+
+   ``generate_returns_from_weights`` and ``generate_multi_returns_from_weights``
+   are retired because they ignore portfolio drift. Use
+   :func:`sf_quant.simulation.simulate_portfolio`, then ``result.returns("total")``
+   or ``result.multi_returns()``. Only explicitly named ``legacy_`` implementations
+   remain for reproducing old arithmetic, and every call emits a warning.
+
+See :doc:`simulation` for the execution API and migration example.
+
 .. currentmodule:: sf_quant.performance
 
 .. autosummary::
    :toctree: performance
    :nosignatures:
 
-   generate_returns_from_weights
-   generate_multi_returns_from_weights
+   simulate_portfolio
+   get_trade_turnover_stats
    generate_leverage_from_weights
    generate_drawdown_from_returns
    generate_returns_summary_table

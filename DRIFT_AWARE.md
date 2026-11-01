@@ -65,8 +65,18 @@ The benchmark uses yesterday's complete composition, never today's market-cap
 weights to explain a return already realized. A complete benchmark composition
 is required on every session when benchmark reporting is requested.
 
-Legacy weighted-return APIs retain same-date arithmetic and universe filtering.
-They do not simulate holdings and should be used only for explicit legacy work.
+The public names `generate_returns_from_weights` and
+`generate_multi_returns_from_weights` are removed. Imports and calls using them
+must migrate to `sf_quant.simulation.simulate_portfolio`; there are no callable
+aliases or automatic substitutions. Simulation requires explicit decimal,
+end-dated asset returns and an execution configuration, so renaming a call alone
+is insufficient. Use `result.returns("total")` for one series and
+`result.multi_returns()` for total/benchmark/active analytics.
+
+`legacy_generate_returns_from_weights` and
+`legacy_generate_multi_returns_from_weights` archive the old arithmetic for
+historical reproducibility only. Each call emits a RuntimeWarning that it ignores
+portfolio drift. Do not use either legacy function for portfolio backtests.
 For FF5 use `run_ff_regression(result.returns("active"),
 return_timing="realization", active_returns=True)`; defaults retain formation-date
 legacy factor alignment. Ex-ante risk in targets is not realized tracking error,

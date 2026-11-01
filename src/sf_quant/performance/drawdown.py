@@ -28,28 +28,23 @@ def generate_drawdown_from_returns(returns: PortfolioRetSchema) -> DrawdownSchem
         
     Examples
     --------
+    >>> import datetime as dt
     >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
+    >>> from sf_quant.simulation import simulate_portfolio
+    >>> dates = [dt.date(2024, 1, d) for d in (2, 3, 4)]
+    >>> targets = pl.DataFrame({
+    ...     "date": [dates[0], dates[0]], "barrid": ["A", "B"],
+    ...     "weight": [0.5, 0.5],
+    ... })
+    >>> asset_returns = pl.DataFrame({
+    ...     "date": [d for d in dates for _ in range(2)],
+    ...     "barrid": ["A", "B"] * 3,
+    ...     "return": [0.0, 0.0, 0.0, 0.0, -0.5, 0.0],
+    ... })
+    >>> result = simulate_portfolio(targets, asset_returns)
+    >>> returns = result.returns("total")
     >>> drawdowns = sfp.generate_drawdown_from_returns(returns)
-    >>> drawdowns
-    shape: (2, 2)
-    ┌────────────┬───────────┐
-    │ date       ┆ drawdown  │
-    │ ---        ┆ ---       │
-    │ date       ┆ f64       │
-    ╞════════════╪═══════════╡
-    │ 2024-01-02 ┆ 0.0       │
-    │ 2024-01-03 ┆ -0.016154 │
-    └────────────┴───────────┘
     """
     result = (
         returns.sort("date")

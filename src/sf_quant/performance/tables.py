@@ -56,29 +56,24 @@ def generate_multi_returns_summary_table(returns: MultiPortfolioRetSchema, wide:
 
     Examples
     --------
+    >>> import datetime as dt
     >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
-    >>> summary = sfp.generate_summary_table(returns)
-    >>> summary
-    shape: (3, 6)
-    ┌───────────┬───────┬─────────────────┬────────────────┬──────────────────┬────────┐
-    │ Portfolio ┆ Count ┆ Mean Return (%) ┆ Volatility (%) ┆ Total Return (%) ┆ Sharpe │
-    │ ---       ┆ ---   ┆ ---             ┆ ---            ┆ ---              ┆ ---    │
-    │ str       ┆ u32   ┆ f64             ┆ f64            ┆ f64              ┆ f64    │
-    ╞═══════════╪═══════╪═════════════════╪════════════════╪══════════════════╪════════╡
-    │ Active    ┆ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    │ Benchmark ┆ 2     ┆ -0.0            ┆ 0.0            ┆ -0.0             ┆ -4.01  │
-    │ Total     ┆ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    └───────────┴───────┴─────────────────┴────────────────┴──────────────────┴────────┘
+    >>> from sf_quant.simulation import simulate_portfolio
+    >>> dates = [dt.date(2024, 1, d) for d in (2, 3, 4)]
+    >>> targets = pl.DataFrame({
+    ...     "date": [dates[0], dates[0]], "barrid": ["A", "B"],
+    ...     "weight": [0.5, 0.5],
+    ... })
+    >>> asset_returns = pl.DataFrame({
+    ...     "date": [d for d in dates for _ in range(2)],
+    ...     "barrid": ["A", "B"] * 3,
+    ...     "return": [0.0, 0.0, 0.0, 0.0, -0.5, 0.0],
+    ... })
+    >>> benchmark = asset_returns.select("date", "barrid").with_columns(
+    ...     pl.lit(0.5).alias("weight"))
+    >>> result = simulate_portfolio(targets, asset_returns, benchmark_weights=benchmark)
+    >>> summary = sfp.generate_multi_returns_summary_table(result.multi_returns())
     """
     summary_wide = (
         returns.group_by("portfolio")
@@ -159,27 +154,23 @@ def generate_returns_summary_table(returns: PortfolioRetSchema) -> pl.DataFrame:
 
     Examples
     --------
+    >>> import datetime as dt
     >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
+    >>> from sf_quant.simulation import simulate_portfolio
+    >>> dates = [dt.date(2024, 1, d) for d in (2, 3, 4)]
+    >>> targets = pl.DataFrame({
+    ...     "date": [dates[0], dates[0]], "barrid": ["A", "B"],
+    ...     "weight": [0.5, 0.5],
+    ... })
+    >>> asset_returns = pl.DataFrame({
+    ...     "date": [d for d in dates for _ in range(2)],
+    ...     "barrid": ["A", "B"] * 3,
+    ...     "return": [0.0, 0.0, 0.0, 0.0, -0.5, 0.0],
+    ... })
+    >>> result = simulate_portfolio(targets, asset_returns)
+    >>> returns = result.returns("total")
     >>> summary = sfp.generate_returns_summary_table(returns)
-    >>> summary
-    shape: (1, 5)
-    ┌───────┬─────────────────┬────────────────┬──────────────────┬────────┐
-    │ Count ┆ Mean Return (%) ┆ Volatility (%) ┆ Total Return (%) ┆ Sharpe │
-    │ ---   ┆ ---             ┆ ---            ┆ ---              ┆ ---    │
-    │ u32   ┆ f64             ┆ f64            ┆ f64              ┆ f64    │
-    ╞═══════╪═════════════════╪════════════════╪══════════════════╪════════╡
-    │ 2     ┆ -194.28         ┆ 63.87          ┆ -1.62            ┆ -3.04  │
-    └───────┴─────────────────┴────────────────┴──────────────────┴────────┘
     """
     return (
         returns.select(
@@ -303,28 +294,24 @@ def generate_drawdown_summary_table(drawdown: DrawdownSchema) -> pl.DataFrame:
 
     Examples
     --------
+    >>> import datetime as dt
     >>> import polars as pl
     >>> import sf_quant.performance as sfp
-    >>> import datetime as dt
-    >>> weights = pl.DataFrame(
-    ...     {
-    ...         'date': [dt.date(2024, 1, 2), dt.date(2024, 1, 2), dt.date(2024, 1, 3), dt.date(2024, 1, 3)],
-    ...         'barrid': ['USA06Z1', 'USA0771', 'USA06Z1', 'USA0771'],
-    ...         'weight': [0.5, 0.5, 0.3, 0.7]
-    ...     }
-    ... )
-    >>> returns = sfp.generate_returns_from_weights(weights)
+    >>> from sf_quant.simulation import simulate_portfolio
+    >>> dates = [dt.date(2024, 1, d) for d in (2, 3, 4)]
+    >>> targets = pl.DataFrame({
+    ...     "date": [dates[0], dates[0]], "barrid": ["A", "B"],
+    ...     "weight": [0.5, 0.5],
+    ... })
+    >>> asset_returns = pl.DataFrame({
+    ...     "date": [d for d in dates for _ in range(2)],
+    ...     "barrid": ["A", "B"] * 3,
+    ...     "return": [0.0, 0.0, 0.0, 0.0, -0.5, 0.0],
+    ... })
+    >>> result = simulate_portfolio(targets, asset_returns)
+    >>> returns = result.returns("total")
     >>> drawdown = sfp.generate_drawdown_from_returns(returns)
     >>> summary = sfp.generate_drawdown_summary_table(drawdown)
-    >>> summary
-    shape: (1, 5)
-    ┌───────┬────────────────────┬──────────────────┬──────────────────────┬───────────────────────┐
-    │ Count ┆ Mean Drawdown (%)  ┆ Max Drawdown (%) ┆ Current Drawdown (%) ┆ Longest Drawdown (da… │
-    │ ---   ┆ ---                ┆ ---              ┆ ---                  ┆ ---                   │
-    │ u32   ┆ f64                ┆ f64              ┆ f64                  ┆ i64                   │
-    ╞═══════╪════════════════════╪══════════════════╪══════════════════════╪═══════════════════════╡
-    │ 2     ┆ -0.81              ┆ -1.62            ┆ -1.62                ┆ 1                     │
-    └───────┴────────────────────┴──────────────────┴──────────────────────┴───────────────────────┘
     """
     # Calculate longest drawdown period
     longest_dd = (

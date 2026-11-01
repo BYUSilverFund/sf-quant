@@ -252,10 +252,46 @@ def test_legacy_weighted_return_interfaces_keep_same_date_semantics(monkeypatch)
     weights = panel(D[:2], [[0.5, 0.5]] * 2)
     monkeypatch.setattr(legacy, "load_assets", lambda **kw: returns)
     monkeypatch.setattr(legacy, "load_benchmark", lambda **kw: weights)
-    np.testing.assert_allclose(
-        legacy.generate_returns_from_weights(weights)["return"], [0.05, 0.1]
-    )
-    multi = legacy.generate_multi_returns_from_weights(weights)
+    with pytest.warns(RuntimeWarning, match="ignores portfolio drift"):
+        single = legacy.legacy_generate_returns_from_weights(weights)
+    np.testing.assert_allclose(single["return"], [0.05, 0.1])
+    with pytest.warns(RuntimeWarning, match="ignores portfolio drift"):
+        multi = legacy.legacy_generate_multi_returns_from_weights(weights)
     np.testing.assert_allclose(
         multi.filter(pl.col("portfolio") == "active")["return"], [0, 0]
     )
+
+
+@pytest.mark.parametrize("old_name", [
+    "generate_returns_from_weights", "generate_multi_returns_from_weights",
+])
+def test_retired_return_names_cannot_be_called(old_name):
+    import sf_quant.performance as performance
+    from sf_quant.performance import returns as legacy
+
+    assert old_name not in performance.__all__
+    for module in (performance, legacy):
+        with pytest.raises(AttributeError, match="Use simulate_portfolio"):
+            getattr(module, old_name)
+    assert callable(getattr(performance, "legacy_" + old_name))
+    assert performance.simulate_portfolio is simulate_portfolio
+
+
+@pytest.mark.parametrize("module_name,function_name", [
+    ("tables", "generate_returns_summary_table"),
+    ("tables", "generate_multi_returns_summary_table"),
+    ("tables", "generate_drawdown_summary_table"),
+    ("drawdown", "generate_drawdown_from_returns"),
+])
+def test_reporting_examples_execute_simulation(module_name, function_name):
+    import doctest
+    from importlib import import_module
+
+    module = import_module("sf_quant.performance." + module_name)
+    docstring = getattr(module, function_name).__doc__
+    assert "generate_returns_from_weights" not in docstring
+    assert "simulate_portfolio" in docstring
+    example = doctest.DocTestParser().get_doctest(
+        docstring, {}, function_name, module.__file__, 0)
+    outcome = doctest.DocTestRunner().run(example)
+    assert outcome.failed == 0
