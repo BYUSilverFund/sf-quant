@@ -1,3 +1,4 @@
+import datetime as dt
 import polars as pl
 
 from ._tables import (
@@ -115,15 +116,35 @@ def benchmark():
     )
 
 
-def benchmark_returns():
+def benchmark_returns(start=None, end=None):
+    """Each stock's benchmark weight at the previous close, with the day's return.
+
+    A day's benchmark return weights each stock by its market cap at the previous
+    close, over the stocks in the universe at that close. The day's own closing cap
+    already includes the day's return, so weighting by it would overweight that
+    day's winners after the fact and overstate the benchmark.
+
+    ``start`` and ``end`` bound the scan; a two-week margin before ``start`` supplies
+    each stock's previous close.
+    """
+    frame = assets_table.scan()
+    if start is not None:
+        frame = frame.filter(pl.col("date") >= start - dt.timedelta(days=14))
+    if end is not None:
+        frame = frame.filter(pl.col("date") <= end)
     return (
-        assets_table.scan()
-        .filter(pl.col('in_universe'))
+        frame.select("date", "barrid", "market_cap", "in_universe", "return")
+        .sort("barrid", "date")
+        .with_columns(
+            pl.col("market_cap").shift(1).over("barrid").alias("previous_cap"),
+            pl.col("in_universe").shift(1).over("barrid").alias("previous_in_universe"),
+        )
+        .filter(pl.col("previous_in_universe").fill_null(False), pl.col("previous_cap") > 0)
         .select(
             "date",
             "barrid",
-            pl.col("market_cap")
-            .truediv(pl.col("market_cap").sum())
+            pl.col("previous_cap")
+            .truediv(pl.col("previous_cap").sum())
             .over("date")
             .alias("weight"),
             "return",
