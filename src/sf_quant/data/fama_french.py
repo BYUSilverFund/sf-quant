@@ -73,15 +73,13 @@ def get_fama_french_columns() -> str:
     │ RF     ┆ Float64 │
     └────────┴─────────┘
     """
-    pl.Config.set_tbl_rows(-1)
     schema = fama_french().collect_schema()
-    df_str = str(
-        pl.DataFrame(
-            {
-                "column": list(schema.keys()),
-                "dtype": [str(t) for t in schema.values()],
-            }
+    with pl.Config(tbl_rows=-1):
+        return str(
+            pl.DataFrame(
+                {
+                    "column": list(schema.keys()),
+                    "dtype": [str(t) for t in schema.values()],
+                }
+            )
         )
-    )
-    pl.Config.set_tbl_rows(10)
-    return df_str

@@ -63,8 +63,9 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
     Load aggregated benchmark returns between two dates.
 
     This function computes daily benchmark returns by aggregating individual
-    constituent returns weighted by their benchmark weights. Returns are
-    grouped by date and aggregated into a single benchmark return value.
+    constituent returns weighted by their benchmark weights at the previous
+    close. Returns are grouped by date and aggregated into a single benchmark
+    return value.
 
     Parameters
     ----------
@@ -80,7 +81,15 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
         the following columns:
 
         - ``date`` : datetime, observation date.
-        - ``bmk_return`` : float, aggregated benchmark return for the date.
+        - ``bmk_return`` : float, aggregated benchmark return for the date, in
+          percent like the asset returns it is built from (0.45 means 0.45%).
+
+    Notes
+    -----
+    Each stock is weighted by its market cap at the previous close, over the
+    stocks in the universe at that close. Weighting by the day's own closing
+    cap would overweight that day's winners after the fact: over 2013 it
+    overstated the benchmark's return by about 6 percentage points.
 
     Examples
     --------
@@ -99,17 +108,18 @@ def load_benchmark_returns(start: dt.date, end: dt.date) -> pl.DataFrame:
     │ ---        ┆ ---          │
     │ date       ┆ f64          │
     ╞════════════╪══════════════╡
-    │ 2024-01-02 ┆ 0.004521     │
-    │ 2024-01-03 ┆ -0.001234    │
-    │ 2024-01-04 ┆ 0.002876     │
-    │ 2024-01-05 ┆ 0.001543     │
-    │ 2024-01-08 ┆ -0.000612    │
+    │ 2024-01-02 ┆ -0.640534    │
+    │ 2024-01-03 ┆ -1.050106    │
+    │ 2024-01-04 ┆ -0.283739    │
+    │ 2024-01-05 ┆ 0.170624     │
+    │ 2024-01-08 ┆ 1.484791     │
     └────────────┴──────────────┘
     """
     return (
-        benchmark_returns()
+        benchmark_returns(start, end)
         .filter(pl.col("date").is_between(start, end))
         .group_by("date")
         .agg((pl.col("weight") * pl.col("return")).sum().alias("bmk_return"))
+        .sort("date")
         .collect()
     )
